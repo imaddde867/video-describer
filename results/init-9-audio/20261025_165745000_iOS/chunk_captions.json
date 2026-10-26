@@ -1,0 +1,111 @@
+{
+  "video": "../videos/20261025_165745000_iOS.MP4",
+  "windows": [
+    {
+      "index": 0,
+      "start": 0.0,
+      "end": 18.474,
+      "start_ts": "0:00.0",
+      "end_ts": "0:18.5",
+      "frames": 28,
+      "caption": "## Segment summary\nThe video introduces \"OOMWOO,\" an open-source robot vacuum that users can build themselves. It highlights key features: being fully open-source, having no cloud connectivity, and its name being symmetrical. The video then demonstrates how the device uses a spinning LiDAR sensor to map a home.\n\n## Events\n- 0:00.0 - A circular logo for \"Repo Explained\" appears over a living room scene, with the text \"BUILD YOUR OWN\" above it and \"Imagine a robot vacuum\" below it.\n- 0:00.7 - The text \"BUILD YOUR OWN ROBOT VACUUM\" appears, and the \"Repo Explained\" logo is replaced by a 3D model of a robot vacuum.\n- 0:01.3 - The text at the bottom changes to \"you build yourself, where\".\n- 0:02.0 - A dark box appears with a green checkmark and the text \"you build it\".\n- 0:03.3 - A CAD design image of the robot vacuum appears in the upper right, labeled \"THE DESIGN (CAD)\".\n- 0:04.0 - The text at the bottom changes to \"every part is open,\".\n- 0:04.7 - The text at the bottom changes to \"and nothing phones home.\".\n- 0:05.3 - A third green checkmark appears in the box, with the text \"no cloud, nothing phones home\".\n- 0:06.7 - The text \"OOMWOO\" appears at the top of the screen.\n- 0:07.3 - The text at the bottom changes to \"It's called OOMWOO.\".\n- 0:08.0 - A GitHub star counter appears, initially showing \"0\".\n- 0:08.7 - The GitHub star counter updates to \"11,896\".\n- 0:09.3 - The text at the bottom changes to \"And flip the\".\n- 0:10.0 - The text \"OOMWOO\" appears in large white letters, with \"flip it 180\u00b0...\" below it.\n- 0:10.7 - The text at the bottom changes to \"name upside down, it\".\n- 0:11.3 - The text at the bottom changes to \"still reads OOMWOO.\".\n- 0:12.0 - The scene changes to a top-down view of the robot vacuum on a blueprint.\n- 0:12.7 - The text at the bottom changes to \"A spinning LiDAR on\".\n- 0:13.3 - The text at the bottom changes to \"top scans every wall,\".\n- 0:14.0 - A text box appears with \"2D LiDAR \u2022 360\u00b0 scan\".\n- 0:14.7 - The text at the bottom changes to \"draws a map\".\n- 0:15.3 - The text at the bottom changes to \"of your home, and\".\n- 0:16.0 - The text \"MAP\" appears in large blue letters on the blueprint, with \"building live\" below it.\n- 0:16.7 - The text at the bottom changes to \"IT MAPS YOUR HOME\".\n- 0:17.3 - The text at the bottom changes to \"A spinning LiDAR on\".\n- 0:18.0 - The text at the bottom changes to \"top scans every wall,\".\n\n## Visible entities\n- A living room with a wooden floor, a rug, a chair with green and pink cushions, a potted plant, and a bookshelf.\n- A 3D model of a robot vacuum, which is grey with a red stripe and a black top.\n- A CAD design image of the robot vacuum.\n- A blueprint of a house.\n- A spinning LiDAR sensor depicted as a red cone of light.\n- A GitHub star counter.\n- A small \"Repo Explained\" logo at the bottom center.\n\n## On-screen text\n- \"BUILD YOUR OWN\"\n- \"BUILD YOUR OWN ROBOT VACUUM\"\n- \"Imagine a robot vacuum\"\n- \"you build yourself, where\"\n- \"you build it\"\n- \"every part open\"\n- \"and nothing phones home.\"\n- \"no cloud, nothing phones home\"\n- \"OOMWOO\"\n- \"It's called OOMWOO.\"\n- \"makerspet / oomwoo\"\n- \"Over 12,000 GitHub stars.\"\n- \"And flip the\"\n- \"OOMWOO\"\n- \"flip it 180\u00b0...\"\n- \"name upside down, it\"\n- \"still reads OOMWOO.\"\n- \"IT MAPS YOUR HOME\"\n- \"A spinning LiDAR on\"\n- \"top scans every wall,\"\n- \"2D LiDAR \u2022 360\u00b0 scan\"\n- \"MAP\"\n- \"building live\"\n- \"draws a map\"\n- \"of your home, and\"\n\n## Camera and framing\nThe camera is static throughout the segment, with no pans, tilts, or zooms. The framing changes from a living room scene to a top-down view of a blueprint.\n\n## Uncertainty\nNone. All events and text are clearly visible and legible.",
+      "audio": "The audio clip features a conversation between two men discussing a robot vacuum cleaner called 'Oomwah'. The conversation is in English with a neutral mood. There are no background sounds or music.",
+      "speech": [
+        {
+          "start": 0.0,
+          "end": 6.0,
+          "text": "Imagine a robot vacuum you build yourself, where every part is open and nothing phones home."
+        },
+        {
+          "start": 6.0,
+          "end": 10.0,
+          "text": "It's called Umwu, over 12,000 GitHub stars."
+        },
+        {
+          "start": 10.0,
+          "end": 14.0,
+          "text": "And flip the name upside down, it still reads Umwu."
+        },
+        {
+          "start": 14.0,
+          "end": 19.0,
+          "text": "A spinning lidar on top scans every wall, draws a map of your home."
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "start": 18.474,
+      "end": 36.948,
+      "start_ts": "0:18.5",
+      "end_ts": "0:36.9",
+      "frames": 28,
+      "caption": "## Segment summary\nThe video segment begins by demonstrating a robot vacuum's ability to map and navigate a home using 2D LiDAR, then transitions to explain its internal components, including a Raspberry Pi and ROS 2 software. It continues by showcasing its local operation without cloud connectivity, and concludes by illustrating its 3D-printed body and the ability to customize it.\n\n## Events\n- 0:18.5 - The video opens on a digital floor plan of a home, with text indicating the robot is mapping the space.\n- 0:20.5 - The floor plan updates to show a 3.9 m\u00b2 area has been mapped, with the text \"plans its own path.\" appearing.\n- 0:21.1 - The scene cuts to a workbench with electronic components, introducing the robot's internal hardware.\n- 0:23.8 - A 3D animation of the robot's internal components is shown, with text confirming it contains a Raspberry Pi CM4/CM5.\n- 0:25.8 - The animation continues, adding text that the Pi runs ROS 2 and Nav2 navigation.\n- 0:27.8 - The text updates to include \"the real-robot software stack.\"\n- 0:29.8 - The scene changes to show the robot in a living room, with text indicating it is \"designed to plug straight into Home Assistant.\"\n- 0:31.8 - The video transitions to a 3D printing workshop, showing the robot's chassis being printed layer by layer.\n- 0:33.8 - The 3D printing process completes, and text appears indicating the body can be \"fix it, hack it, or upgrade it.\"\n\n## Visible entities\n- A digital floor plan of a home, displayed on a tablet or screen.\n- A 3D animated robot vacuum cleaner.\n- A workbench with electronic components, including circuit boards and wires.\n- A 3D printing workshop with multiple 3D printers and spools of filament.\n- A living room with furniture and wall-mounted lamps.\n- A tablet screen displaying a user interface for the robot.\n\n## On-screen text\n- \"IT MAPS YOUR HOME\"\n- \"2D LiDAR \u2022 360\u00b0 scan\"\n- \"MAP 3.7 m\u00b2\" (updates to 3.8 m\u00b2, then 3.9 m\u00b2)\n- \"building live path planned + cleaned\"\n- \"RASPBERRY PI + ROS 2\"\n- \"Inside, a Raspberry\"\n- \"Pi runs ROS 2,\"\n- \"the same software\"\n- \"real robots use.\"\n- \"NO CLOUD NEEDED\"\n- \"No cloud. It works\"\n- \"OOMWOO Cleaning \u2022 living room\"\n- \"off \u2022 local\"\n- \"Start Pause Dock\"\n- \"designed for Home Assistant\"\n- \"into Home Assistant.\"\n- \"3D PRINTED BODY\"\n- \"3D printing chassis... layer 49 / 140\" (updates to 119 / 140, then 140 / 140)\n- \"fix it hack it\"\n- \"it, or upgrade it.\"\n\n## Camera and framing\nThe camera remains static throughout the segment, with cuts between different scenes. The framing changes from a close-up of a digital floor plan to a workbench, then to a 3D animation, followed by a living room, and finally a 3D printing workshop.\n\n## Uncertainty\nNone. All events and text are clearly visible and legible in the provided frames.",
+      "audio": "The audio clip features a male voice discussing the design and functionality of a home assistant. The speaker mentions that the device runs on ROS (Robot Operating System), is designed to work locally without the need for cloud connectivity, and has a 3D printed body that can be repaired or customized. Additionally, there are some unspecified sound effects such as a motor running and a clock ticking. The overall mood of the speech seems informative and positive. There is no music present in the clip.",
+      "speech": [
+        {
+          "start": 18.474,
+          "end": 25.834,
+          "text": "and plans its own path. Inside a Raspberry Pi runs ROS2, the same software real"
+        },
+        {
+          "start": 25.834,
+          "end": 31.434,
+          "text": "robots use. No cloud, it works locally and it's designed to plug straight into"
+        },
+        {
+          "start": 31.434,
+          "end": 38.674,
+          "text": "Home Assistant. The body is 3D printed so you can fix it, hack it,"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "start": 36.948,
+      "end": 55.423,
+      "start_ts": "0:36.9",
+      "end_ts": "0:55.4",
+      "frames": 28,
+      "caption": "## Segment summary\nThe video presents a 3D-printed robot chassis, first showing its 3D printing progress, then transitioning to a simulation where it is shown moving and navigating. The segment concludes by promoting a collaborative, open-source project where makers worldwide can contribute to building the robot by selecting and developing different modules.\n\n## Events\n- 0:36.9 - The video opens on a 3D-printed robot chassis, with a progress bar indicating \"3D printing chassis... layer 140 / 140\" and three interactive buttons: \"fix it\", \"hack it\", and \"upgrade it\".\n- 0:38.9 - The scene transitions to a simulation environment, with the text \"TRY IT IN SIMULATION\" appearing at the top.\n- 0:41.6 - A notification appears in the simulation: \"\u00d7 not buildable yet\", while the text at the bottom reads \"Honest part. It's not buildable yet. But you can drive it in a simulator today.\"\n- 0:46.9 - The simulation shows the robot navigating a path, with the text updating to \"hardware build steps come once the parts list is proven\".\n- 0:47.6 - The scene transitions to a new segment with the text \"BUILT IN PUBLIC\" at the top.\n- 0:48.3 - A UI appears titled \"RFC board \u00b7 pick a module\", listing options: \"brushes\", \"blower fan\", \"firmware\", \"navigation\", \"dust bin\", and \"I/O PCB\".\n- 0:50.3 - The UI updates as users select modules: \"I/O PCB\", \"navigation\", \"dust bin\", \"firmware\", \"brushes\", and \"blower fan\".\n- 0:54.9 - The video ends with a call to action: \"TRY IT NOW\", displaying a GitHub link and a \"Try it now.\" button.\n\n## Visible entities\n- A 3D-printed robot chassis, primarily grey with a red stripe and a black top.\n- A 3D printer in the background of the initial frames.\n- A simulation environment with a grid floor and wireframe furniture.\n- A globe with city lights in the background during the \"BUILT IN PUBLIC\" segment.\n- A UI interface for selecting modules.\n- A \"Repo Explained\" logo.\n- A GitHub link: \"github.com/makerspet/oomwoo\".\n\n## On-screen text\n- \"3D PRINTED BODY\"\n- \"PRINTABLE CHASSIS (CAD)\"\n- \"3D printing chassis... layer 140 / 140\"\n- \"fix it\", \"hack it\", \"upgrade it\"\n- \"it, or upgrade it.\"\n- \"TRY IT IN SIMULATION\"\n- \"Honest part. It's not buildable yet. But you can drive it in a simulator today.\"\n- \"\u00d7 not buildable yet\"\n- \"\u2713 ROS 2 Gazebo simulator: today\"\n- \"BUILT IN PUBLIC\"\n- \"RFC board \u00b7 pick a module\"\n- \"brushes\", \"blower fan\", \"firmware\", \"navigation\", \"dust bin\", \"I/O PCB\"\n- \"Makers around the world are building it together. Pick a module, brushes, fan, firmware, and help finish it.\"\n- \"TRY IT NOW\"\n- \"github.com/makerspet/oomwoo\"\n- \"Try it now.\"\n\n## Camera and framing\nThe camera remains static throughout the segment, with no pans, tilts, or zooms. The framing changes between different scenes: from a workshop setting, to a simulation environment, to a globe background, and finally to a home setting.\n\n## Uncertainty\nNone. All events and text are clearly visible and legible in the provided frames.",
+      "audio": "## Audio summary\n\nThe audio clip features a male voice speaking in English with an excited mood. He is discussing a topic related to robotics and virtual simulation, mentioning that a module, brushes, fan, firmware, and other components can be purchased to build a robot. The speech ends abruptly with music playing in the background.\n\n## Speech\n\nThe speaker says, 'or upgrade it honestly part it's not buildable yet but you can drive it in a simulator today makers around the world are building it together pick a module brushes fan firmware and help finish it try it now.' The speaker then adds, 'music' before the audio cuts off.\n\n## Delivery and tone\n\nThe speaker appears to be enthusiastic and eager to share information about building a robot. The use of the word 'honestly part it's not buildable yet' suggests a level of honesty and transparency, while the phrase 'makers around the world are building it together' implies a collaborative effort. The sudden shift to music indicates a transition or climax within the speech.\n\n## Music and effects\n\nThe music starts playing after the speaker says 'music,' which lasts for approximately 10 seconds. There are no specific sound effects mentioned, but the mention of music suggests that there may be musical elements integrated into the speech.\n\n## Sound off screen\n\nThere are no sounds off-screen mentioned in the provided transcript.\n\n## Uncertainty\n\nThe transcript does not provide enough information to determine the source of any uncertainty. It is possible that some parts of the speech were unclear due to poor audio quality or overlapping dialogue. Additionally, without seeing the visual context of the presentation, it is impossible to determine if there were any sounds that could not be identified by the speaker.",
+      "speech": [
+        {
+          "start": 36.948,
+          "end": 38.748,
+          "text": "or upgrade it."
+        },
+        {
+          "start": 38.748,
+          "end": 41.028,
+          "text": "Honest part, it's not buildable yet,"
+        },
+        {
+          "start": 41.028,
+          "end": 43.988,
+          "text": "but you can drive it in a simulator today."
+        },
+        {
+          "start": 43.988,
+          "end": 46.988,
+          "text": "Makers around the world are building it together."
+        },
+        {
+          "start": 46.988,
+          "end": 49.948,
+          "text": "Pick a module, brushes, fan, firmware,"
+        },
+        {
+          "start": 49.948,
+          "end": 51.588,
+          "text": "and help finish it."
+        },
+        {
+          "start": 51.588,
+          "end": 52.588,
+          "text": "Try it now."
+        }
+      ]
+    }
+  ]
+}

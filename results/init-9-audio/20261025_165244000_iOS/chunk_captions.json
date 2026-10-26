@@ -1,0 +1,121 @@
+{
+  "video": "../videos/20261025_165244000_iOS.MP4",
+  "windows": [
+    {
+      "index": 0,
+      "start": 0.0,
+      "end": 18.3,
+      "start_ts": "0:00.0",
+      "end_ts": "0:18.3",
+      "frames": 27,
+      "caption": "## Segment summary\nA small, black, rectangular device with a smiling face display is shown mounted on a gold desk lamp arm next to a laptop. A person's finger interacts with the device, which lights up and displays a smiling face. The device is then detached, shown from different angles, and reattached to the lamp arm, where it resumes displaying its smiling face.\n\n## Events\n<0:00.0> - The video starts with a close-up of the black device mounted on the lamp arm, its display showing a faint, horizontal, smiling face pattern.\n<0:00.7> - The device's display lights up, showing a clear, bright, smiling face with two oval eyes and a curved mouth.\n<0:02.0> - A person's finger approaches the device's display and taps it.\n<0:04.0> - The device is detached from the lamp arm by a hand.\n<0:06.0> - The device is shown being plugged into a charging port on the laptop.\n<0:08.0> - The device is detached from the laptop and held by a hand.\n<0:10.0> - The device is placed on the laptop's lid, where a circular sticker with a smiling face is visible.\n<0:12.0> - The device is picked up and reattached to the laptop's lid.\n<0:14.0> - The device is detached from the laptop and placed back on the desk.\n<0:16.0> - The device is reattached to the lamp arm.\n<0:18.3> - The device is shown mounted on the lamp arm, displaying its smiling face.\n\n## Visible entities\n- A person's hand and finger.\n- A small, black, rectangular device with a smiling face display.\n- A gold-colored desk lamp with an articulated arm.\n- A laptop (partially visible, with a silver-colored lid and a black keyboard).\n- A black wire mesh cable organizer.\n- A white USB cable.\n- A circular sticker with a smiling face on the laptop lid.\n- A wooden desk surface.\n- A beige wall.\n\n## On-screen text\nnone\n\n## Camera and framing\nThe camera is handheld and moves around the device, changing angles and focus to show the device from different perspectives. The camera starts with a close-up of the device, then pans and tilts to show the device being detached, plugged in, and reattached. The camera returns to a close-up of the device mounted on the lamp arm at the end.\n\n## Uncertainty\nThe exact model or brand of the device is not visible. The text \"HEY TAEY\" is visible on the device, but its meaning is unclear. The laptop's screen is visible, but the content is not relevant to the main action. The exact purpose of the device is not clear from the video.",
+      "audio": "## Audio summary\nThe audio clip features someone explaining the physical appearance and functionality of a tabby-shaped magnet steel plate that adheres to a computer via a magnet and can hold a screen without falling off. There's no speech present.\n## No speech\n## Music and effects\nThere are no music or sound effects present in this audio clip.\n## Sound off screen\nThere are no sounds coming from outside the frame indicated by the description provided.\n## Uncertainty\nThe audio quality is described as clear, but there may be some uncertainty about the specific words spoken due to the lack of transcription provided. Additionally, since there is no speech, it is uncertain what other sounds might be present outside of the described tabby-shaped magnet steel plate.",
+      "speech": [
+        {
+          "start": 0.0,
+          "end": 2.12,
+          "text": "This is how the physical Tabi looks like."
+        },
+        {
+          "start": 2.12,
+          "end": 5.42,
+          "text": "First of all, it holds onto your computer like this."
+        },
+        {
+          "start": 5.42,
+          "end": 8.92,
+          "text": "There's this little cute Tabi face magnet steel plate"
+        },
+        {
+          "start": 8.92,
+          "end": 11.96,
+          "text": "and then just with a magnet here, it snaps on"
+        },
+        {
+          "start": 11.96,
+          "end": 15.16,
+          "text": "and then, yeah, it's pretty sturdy, won't fall off."
+        },
+        {
+          "start": 15.16,
+          "end": 18.0,
+          "text": "And then if you hold the screen and be like,"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "start": 18.3,
+      "end": 36.6,
+      "start_ts": "0:18.3",
+      "end_ts": "0:36.6",
+      "frames": 27,
+      "caption": "## Segment summary\nA person interacts with a small, black, rectangular device displaying animated emoticons, which is mounted on a gold-colored desk lamp arm next to a laptop. The device responds to touch by changing its facial expression and animation. The laptop screen shows a Finder window with a calendar widget and folders, and later displays a conversation interface with the same emoticon character. The interaction continues with the person touching the device and the emoticon responding.\n\n## Events\n<0:18.3> - A finger touches the small black device, which displays a smiling face with closed eyes.\n<0:19.0> - The device's animation changes to show a waving hand emoji next to the smiling face.\n<0:19.6> - The device's animation changes to show a wizard hat and sparkles.\n<0:20.3> - The device's animation changes back to a simple smiling face with closed eyes.\n<0:21.0> - The device's animation changes to show a waving hand emoji again.\n<0:21.6> - The device's animation changes to show a wizard hat and sparkles again.\n<0:22.3> - The device's animation changes to show a simple smiling face with closed eyes.\n<0:23.0> - The device's animation changes to show a waving hand emoji again.\n<0:23.6> - The device's animation changes to show a wizard hat and sparkles again.\n<0:24.3> - The device's animation changes to show a simple smiling face with closed eyes.\n<0:25.0> - The device's animation changes to show a waving hand emoji again.\n<0:25.6> - The device's animation changes to show a wizard hat and sparkles again.\n<0:26.3> - The device's animation changes to show a simple smiling face with closed eyes.\n<0:27.0> - The device's animation changes to show a waving hand emoji again.\n<0:27.6> - The device's animation changes to show a wizard hat and sparkles again.\n<0:28.3> - The device's animation changes to show a simple smiling face with closed eyes.\n<0:29.0> - The device's animation changes to show a waving hand emoji again.\n<0:29.6> - The device's animation changes to show a wizard hat and sparkles again.\n<0:30.3> - The device's animation changes to show a simple smiling face with closed eyes.\n<0:31.0> - The device's animation changes to show a waving hand emoji again.\n<0:31.6> - The device's animation changes to show a wizard hat and sparkles again.\n<0:32.3> - The device's animation changes to show a simple smiling face with closed eyes.\n<0:33.0> - The device's animation changes to show a waving hand emoji again.\n<0:33.6> - The device's animation changes to show a wizard hat and sparkles again.\n<0:34.3> - The device's animation changes to show a simple smiling face with closed eyes.\n<0:35.0> - The device's animation changes to show a waving hand emoji again.\n<0:35.6> - The device's animation changes to show a wizard hat and sparkles again.\n\n## Visible entities\n- A person\u2019s hand and finger interacting with the device.\n- A small, black, rectangular device displaying animated emoticons.\n- A gold-colored desk lamp arm holding the device.\n- A laptop screen showing a Finder window with a calendar widget and folders.\n- A laptop screen showing a conversation interface with an emoticon character.\n- A beige textured wall in the background.\n- A black cable running along the desk lamp arm.\n\n## On-screen text\n- @DESK_ROBOT (Instagram handle visible in the top right corner of the laptop screen and in the bottom left corner of the laptop screen)\n- Finder File Edit View Go Window Help (menu bar on the laptop screen)\n- SEPTEMBER (calendar header on the laptop screen)\n- M T W T F S S (calendar day headers on the laptop screen)\n- 1 2 3 4 5 6 (calendar dates on the laptop screen)\n- 7 8 9 10 11 12 13 (calendar dates on the laptop screen)\n- 14 15 16 17 18 19 20 (calendar dates on the laptop screen)\n- 21 22 23 24 25 26 27 (calendar dates on the laptop screen)\n- 28 29 30 (calendar dates on the laptop screen)\n- amb DERMATOLOGIJA (folder name on the laptop screen)\n- rumanija untitled folder (folder names on the laptop screen)\n- studiju derm (folder name on the laptop screen)\n- NG presentacijas (folder name on the laptop screen)\n- amb atsevski (folder name on the laptop screen)\n- presentacijas LV (folder name on the laptop screen)\n- Ropa\u017eu Munic... 13\u00b0 Rain H-13\u00b0 L-11\u00b0 (weather widget on the laptop screen)\n- Hey! Going well \u2014 how's yours? (conversation message on the laptop screen)\n- Ask a follow-up or / (input prompt on the laptop screen)\n- Listen again (button on the laptop screen)\n\n## Camera and framing\nThe camera remains relatively stationary throughout the segment, focusing on the small device and the laptop screen. There are slight movements as the person interacts with the device and the laptop, but the overall framing stays consistent.\n\n## Uncertainty\nNone. All events and details are clearly visible in the provided frames.",
+      "audio": "## Audio summary\n\nThe audio clip features a male voice speaking in English. The speech is delivered in a casual manner with no specific mood indicated. There are no other voices present in the clip. The speech content is about a demonstration of a product that can be viewed digitally or physically. The speaker mentions the ability to continue talking to the product or performing physical actions with it. There are no music or sound effects present in the clip.\n## Delivery and tone\n\nThe speaker's tone is clear and concise, providing a brief overview of the product's capabilities. There are no noticeable changes in tone throughout the clip.\n## No music or sound effects\n\nThere are no music or sound effects present in the clip.\n## Sound off-screen\n\nThere are no sounds coming from outside the frame of the video.",
+      "speech": [
+        {
+          "start": 18.3,
+          "end": 21.88,
+          "text": "Saby, how are you?"
+        },
+        {
+          "start": 21.88,
+          "end": 22.96,
+          "text": "You have to also-"
+        },
+        {
+          "start": 22.96,
+          "end": 25.6,
+          "text": "Hey, going well, how's yours?"
+        },
+        {
+          "start": 25.6,
+          "end": 28.36,
+          "text": "So it's gonna show up digitally or just physically."
+        },
+        {
+          "start": 28.36,
+          "end": 29.92,
+          "text": "You can choose that in the settings"
+        },
+        {
+          "start": 29.92,
+          "end": 32.56,
+          "text": "and then you can either continue talking to it"
+        },
+        {
+          "start": 32.56,
+          "end": 35.52,
+          "text": "here with the notch or you keep doing stuff physically"
+        },
+        {
+          "start": 35.52,
+          "end": 36.36,
+          "text": "like..."
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "start": 36.6,
+      "end": 54.9,
+      "start_ts": "0:36.6",
+      "end_ts": "0:54.9",
+      "frames": 27,
+      "caption": "## Segment summary\nA person interacts with a small, animated screen mounted on a desk lamp, which responds to touch and triggers a task management AI interface on a laptop. The interaction begins with a finger tap, causes the small screen to animate, and then transitions to a voice-activated AI assistant on the laptop screen, which the user then interacts with.\n\n## Events\n<0:36.6> - A finger taps a small, black, rectangular screen mounted on a gold desk lamp, which displays a cartoon face with glowing eyes and a hand.\n<0:39.3> - The small screen animates, showing a cartoon wizard character with a blue hat and sparkles.\n<0:40.6> - The view widens to show the laptop screen, which displays a Finder window with a calendar widget and folder icons.\n<0:41.9> - The laptop screen shows a chat interface with the text \"Hey, tell me about my tasks.\" and an AI assistant prompt.\n<0:43.9> - The AI assistant on the laptop screen updates its status to \"Preparing voice...\".\n<0:45.9> - The user's finger taps the laptop screen, interacting with the AI assistant.\n<0:47.3> - The AI assistant on the laptop screen updates its status to \"I can list your open tasks, or I can lo...\".\n<0:49.3> - The user's finger taps the laptop screen again, interacting with the AI assistant.\n<0:51.3> - The AI assistant on the laptop screen updates its status to \"Ask a follow-up or /\".\n<0:53.9> - The video ends with the AI assistant interface on the laptop screen.\n\n## Visible entities\n- A person's hand and finger, interacting with both the small screen and the laptop.\n- A small, black, rectangular screen mounted on a gold desk lamp, displaying animated cartoon faces and characters.\n- A laptop screen displaying a Finder window with a calendar widget, folder icons, and an AI assistant chat interface.\n- A gold desk lamp with a coiled spring arm.\n- A beige wall in the background.\n- An Instagram logo and the text \"@DESK_ROBOT\" in the top right corner of the video frames.\n\n## On-screen text\n- \"Finder File Edit\" on the laptop screen.\n- \"SEPTEMBER\" on the calendar widget on the laptop screen.\n- \"13\u00b0\" and \"Rain H:13\u00b0 L:11\u00b0\" on the weather widget on the laptop screen.\n- \"Hey, tell me about my tasks.\" in the AI assistant chat interface on the laptop screen.\n- \"I can list your open tasks, or I can look for tasks with a deadline in a specific period. What would you like to see?\" in the AI assistant chat interface on the laptop screen.\n- \"Listen again\" in the AI assistant chat interface on the laptop screen.\n- \"Stop\" button in the AI assistant chat interface on the laptop screen.\n- \"Ask a follow-up or /\" in the AI assistant chat interface on the laptop screen.\n- \"@DESK_ROBOT\" in the top right corner of the video frames.\n\n## Camera and framing\nThe camera is handheld and slightly shaky, with a slight pan to the right and a slight zoom out to show the laptop screen. The camera remains focused on the small screen and the laptop screen throughout the segment.\n\n## Uncertainty\n- The exact content of the AI assistant's response is not visible in the frames.\n- The specific actions of the person's hand are not fully visible in all frames.\n- The exact details of the small screen's animation are not fully visible in all frames.",
+      "audio": "The audio clip features a male voice discussing tasks, with a deadline in a specific period. The speaker also mentions the option to list open tasks or search for those with a deadline. There is no music or background sound present in the clip. The speech ends abruptly, and there is no other sound heard after that point.",
+      "speech": [
+        {
+          "start": 36.68,
+          "end": 43.82,
+          "text": "Hey, tell me about my tasks and then does the thinking and then yeah, you can choose whether this I can list your open tasks"
+        },
+        {
+          "start": 43.82,
+          "end": 50.8,
+          "text": "Or I can look for tasks with a deadline in a specific period. You get it. What would you like to see? You get it. You get it"
+        }
+      ]
+    }
+  ]
+}

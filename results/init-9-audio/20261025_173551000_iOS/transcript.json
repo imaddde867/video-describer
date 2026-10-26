@@ -1,0 +1,68 @@
+{
+  "video": "../videos/20261025_173551000_iOS.MP4",
+  "model": "small",
+  "device": "cpu",
+  "language": null,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 5.2,
+      "text": "Here's how to build this desk buddy for less than five bucks and all it takes is three components."
+    },
+    {
+      "start": 5.2,
+      "end": 10.4,
+      "text": "An IMU, an OLED screen and a microcontroller. To make this little robot is super simple,"
+    },
+    {
+      "start": 10.4,
+      "end": 15.2,
+      "text": "as both the IMU and the OLED talk over I squared C. So what that means is that they"
+    },
+    {
+      "start": 15.2,
+      "end": 19.28,
+      "text": "share the same two data lines. All you need to do is connect power and ground,"
+    },
+    {
+      "start": 19.28,
+      "end": 23.12,
+      "text": "then SDA and SCL, four wires per component and you're done."
+    },
+    {
+      "start": 23.44,
+      "end": 28.08,
+      "text": "The IMU is what gives him the personality and measures acceleration and rotation."
+    },
+    {
+      "start": 28.08,
+      "end": 32.0,
+      "text": "That's how if he knows he's being picked up, rotated or shaken, shake him and he gets"
+    },
+    {
+      "start": 32.0,
+      "end": 36.24,
+      "text": "dizzy, tilt him to roll his eyes or tap him carefully to make him happy."
+    },
+    {
+      "start": 36.24,
+      "end": 41.4,
+      "text": "Your imagination is your limitation, speakers, microphones, buttons, whatever you would"
+    },
+    {
+      "start": 41.4,
+      "end": 42.4,
+      "text": "like."
+    },
+    {
+      "start": 42.4,
+      "end": 45.0,
+      "text": "Stuff like this is great to add some extra life to your desk."
+    },
+    {
+      "start": 45.0,
+      "end": 46.76,
+      "text": "So follow for more robotics builds."
+    }
+  ]
+}

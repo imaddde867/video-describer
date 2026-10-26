@@ -1,0 +1,44 @@
+{
+  "video": "../videos/20261025_165745000_iOS.MP4",
+  "probe": {
+    "duration": 55.423,
+    "width": 720,
+    "height": 1280,
+    "fps": 30.0,
+    "has_audio": true
+  },
+  "config": {
+    "chunk_seconds": 25.0,
+    "fps": 1.5,
+    "max_frames": 36,
+    "width": 720,
+    "workers": 3,
+    "focus": null,
+    "summarise": true,
+    "audio": true,
+    "transcript": true,
+    "asr_model": "small",
+    "asr_device": "cpu",
+    "asr_language": null
+  },
+  "windows": 3,
+  "frames_per_window": [
+    28,
+    28,
+    28
+  ],
+  "chunk_seconds": 18.474,
+  "sampled_fps": 1.5,
+  "width": 720,
+  "model": "qwen3-vl-8b",
+  "base_url": "http://127.0.0.1:8000/v1",
+  "focus": null,
+  "audio_analyzed": true,
+  "audio_model": "qwen2-audio-7b",
+  "audio_base_url": "http://127.0.0.1:8001/v1",
+  "audio_seconds": 3.1,
+  "caption_seconds": 33.5,
+  "total_seconds": 54.4,
+  "transcript_model": "small",
+  "transcript_seconds": 3.6
+}

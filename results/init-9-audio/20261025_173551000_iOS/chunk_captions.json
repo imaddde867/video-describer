@@ -1,0 +1,89 @@
+{
+  "video": "../videos/20261025_173551000_iOS.MP4",
+  "windows": [
+    {
+      "index": 0,
+      "start": 0.0,
+      "end": 23.44,
+      "start_ts": "0:00.0",
+      "end_ts": "0:23.4",
+      "frames": 35,
+      "caption": "## Segment summary\nA young man in a workshop demonstrates how to build a simple, cube-shaped robot called a \"desk-buddy\" using three components: an IMU, an OLED screen, and a microcontroller. He explains that the project costs less than $5 and requires only four wires per component to connect them via the I2C communication protocol. The video uses text overlays and inset images to illustrate the components and wiring process.\n\n## Events\n- 0:00.0 - A young man with blond hair, wearing a light-colored striped button-down shirt, holds a small circuit board with a microphone attached and begins speaking to the camera.\n- 0:01.3 - The man gestures with his left hand while holding the circuit board in his right hand.\n- 0:02.0 - The man holds the circuit board up closer to his face as he speaks.\n- 0:04.0 - The camera cuts to a close-up of a purple cube-shaped robot with glowing blue eyes, which is the \"desk-buddy\" being demonstrated.\n- 0:06.0 - The camera returns to the man, who continues speaking while holding the circuit board.\n- 0:08.0 - The man gestures with his left hand towards the robot on the table.\n- 0:10.0 - The man holds up a diagram of an IMU sensor while speaking.\n- 0:12.0 - The man holds up a diagram of an OLED screen while speaking.\n- 0:14.0 - The man holds up a diagram of a microcontroller while speaking.\n- 0:16.0 - The man gestures with his hands as he speaks.\n- 0:18.0 - The man holds up a diagram of a robot while speaking.\n- 0:20.0 - The man gestures with his hands as he speaks.\n- 0:22.0 - The man gestures with his hands as he speaks.\n- 0:23.4 - The man continues speaking while holding the circuit board.\n\n## Visible entities\n- A young man with blond hair, wearing a light-colored striped button-down shirt.\n- A small circuit board with a microphone attached.\n- Two cube-shaped robots on a blue table: one red and one purple, both with glowing blue eyes.\n- A breadboard with wires connecting the robots to the circuit board.\n- Various tools and equipment in the background, including a red vise, a soldering iron, and a blue drill.\n- A green exit sign with an arrow pointing to the right.\n\n## On-screen text\n- \"here's how to\"\n- \"this desk-buddy\"\n- \"for 5$ less than\"\n- \"all it takes\"\n- \"is three components\"\n- \"An IMU\"\n- \"a OLED screen\"\n- \"a microcontroller\"\n- \"to make\"\n- \"this little robot\"\n- \"is super simple TOO EASY\"\n- \"the IMU\"\n- \"and the OLED\"\n- \"I2C\"\n- \"that means\"\n- \"is that\"\n- \"the same\"\n- \"two data lines\"\n- \"All you\"\n- \"need to do\"\n- \"power and\"\n- \"ground\"\n- \"then SDA\"\n- \"and SCL\"\n- \"four wires\"\n- \"per component\"\n- \"done\"\n\n## Camera and framing\nThe camera is mostly static, with a few cuts to close-ups of the robots and diagrams. The framing is consistent, showing the man from the chest up and the robots on the table in front of him.\n\n## Uncertainty\nNone.",
+      "audio": "## Audio summary\n\nThe audio clip features a male voice discussing the process of building a desk using three components: an IMU, an OLED screen, and a microcontroller. The speaker claims that building the desk costs less than five dollars and involves connecting power and ground wires, followed by four wires for each component. There is no music or other sound effects present in the clip.\n## Speech\n\nThe speaker says 'here's how to build this desk buddy for less than five bucks,' which indicates that he will provide instructions on how to construct a desk using affordable materials. He also mentions that the only required components are an IMU, an OLED screen, and a microcontroller.\n## Delivery and tone\n\nThe speaker is male and speaks in English with a neutral mood throughout the clip. There are no other speakers or sound effects mentioned in the audio.\n## Music and effects\n\nThere are no music or sound effects present in the audio clip.\n## Sound off screen\n\nThere are no sounds off-screen mentioned in the audio clip.\n## Uncertainty\n\nThe audio clip does not contain any muffled or overlapping speech, unclear words, or sounds that cannot be identified. The speaker provides clear instructions on how to build the desk, making it easy to follow along.",
+      "speech": [
+        {
+          "start": 0.0,
+          "end": 5.2,
+          "text": "Here's how to build this desk buddy for less than five bucks and all it takes is three components."
+        },
+        {
+          "start": 5.2,
+          "end": 10.4,
+          "text": "An IMU, an OLED screen and a microcontroller. To make this little robot is super simple,"
+        },
+        {
+          "start": 10.4,
+          "end": 15.2,
+          "text": "as both the IMU and the OLED talk over I squared C. So what that means is that they"
+        },
+        {
+          "start": 15.2,
+          "end": 19.28,
+          "text": "share the same two data lines. All you need to do is connect power and ground,"
+        },
+        {
+          "start": 19.28,
+          "end": 23.12,
+          "text": "then SDA and SCL, four wires per component and you're done."
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "start": 23.44,
+      "end": 46.88,
+      "start_ts": "0:23.4",
+      "end_ts": "0:46.9",
+      "frames": 35,
+      "caption": "## Segment summary\nA person demonstrates two small, cube-shaped robots with LED eyes that react to physical interaction. The purple robot is shown being held and placed on a table, while the red robot is manipulated to demonstrate its responses to shaking, tilting, and tapping. A presenter then explains the components, including an IMU sensor, speakers, and microphones, which enable the robots' behaviors. The segment concludes with the robots standing on a blue workbench.\n\n## Events\n<0:23.4> - A hand holds a purple cube robot with glowing blue eyes, then places it upright on a blue surface.\n<0:24.8> - The purple robot stands alone on the blue surface.\n<0:25.4> - A hand holds a red cube robot with glowing blue eyes, then places it upright on the blue surface.\n<0:26.1> - The presenter holds up a circuit board with a microphone attached while speaking.\n<0:26.8> - An image of car speedometers appears overlaid on the screen.\n<0:27.4> - The presenter continues speaking while holding the circuit board.\n<0:28.1> - The presenter holds the red robot while speaking.\n<0:28.8> - The presenter rotates the purple robot, causing its eyes to display a different pattern.\n<0:30.1> - The presenter shakes the red robot, causing its eyes to display a dizzying pattern.\n<0:31.4> - The presenter tilts the red robot, causing its eyes to roll upwards.\n<0:32.1> - The presenter taps the red robot, causing its eyes to display a happy expression.\n<0:32.8> - An image of a cartoon character laughing appears overlaid on the screen.\n<0:33.4> - The presenter continues speaking while holding the circuit board.\n<0:34.1> - The presenter gestures with their hands while speaking.\n<0:34.8> - The presenter holds up an image of a person with a halo.\n<0:35.4> - The presenter holds up an image of a person with their hands raised.\n<0:36.1> - The presenter holds up an image of a speaker and a microphone.\n<0:36.8> - The presenter points to the red robot while speaking.\n<0:37.4> - The presenter holds up an image of a speaker and a microphone.\n<0:38.1> - The presenter holds up an image of a speaker and a microphone.\n<0:38.8> - The presenter holds up an image of a speaker and a microphone.\n<0:39.4> - The presenter holds up an image of a speaker and a microphone.\n<0:40.1> - The presenter holds up an image of a speaker and a microphone.\n<0:40.8> - The presenter holds up an image of a speaker and a microphone.\n<0:41.4> - The presenter holds up an image of a speaker and a microphone.\n<0:42.1> - The presenter holds up an image of a speaker and a microphone.\n<0:42.8> - The presenter holds up an image of a speaker and a microphone.\n<0:43.4> - The presenter holds up an image of a speaker and a microphone.\n<0:44.1> - The presenter holds up an image of a speaker and a microphone.\n<0:44.8> - The presenter holds up an image of a speaker and a microphone.\n<0:45.4> - The presenter holds up an image of a speaker and a microphone.\n<0:46.1> - The presenter holds up an image of a speaker and a microphone.\n\n## Visible entities\n- A person with blond hair wearing a white and grey striped shirt.\n- Two cube-shaped robots: one purple and one red.\n- Both robots have a rectangular black panel on their front face displaying blue LED eyes.\n- The purple robot has a smaller purple base.\n- The red robot has a larger red base.\n- A circuit board with a microphone attached.\n- Various wires and electronic components on a blue workbench.\n- A laptop partially visible in the background.\n- A red screwdriver and other tools on the workbench.\n- A white power strip with multiple plugs.\n- A window with blinds in the background.\n- A green exit sign with an arrow pointing right.\n\n## On-screen text\nnone\n\n## Camera and framing\nThe camera remains mostly static throughout the segment, with slight movements to follow the presenter's actions. The framing shifts slightly between close-ups of the robots and medium shots of the presenter.\n\n## Uncertainty\nNone. All events and objects are clearly visible and identifiable within the provided frames.",
+      "audio": "The audio clip features a male voice discussing the concept of an IMU, which measures acceleration and rotation. The speaker mentions that an IMU gives an object its personality and how it responds when it's picked up, rotated, or shaken. He also talks about adding extra life to a desk with robotic builds and encourages viewers to follow for more content. There is no music or background sound present in this clip.",
+      "speech": [
+        {
+          "start": 23.44,
+          "end": 28.08,
+          "text": "The IMU is what gives him the personality and measures acceleration and rotation."
+        },
+        {
+          "start": 28.08,
+          "end": 32.0,
+          "text": "That's how if he knows he's being picked up, rotated or shaken, shake him and he gets"
+        },
+        {
+          "start": 32.0,
+          "end": 36.24,
+          "text": "dizzy, tilt him to roll his eyes or tap him carefully to make him happy."
+        },
+        {
+          "start": 36.24,
+          "end": 41.4,
+          "text": "Your imagination is your limitation, speakers, microphones, buttons, whatever you would"
+        },
+        {
+          "start": 41.4,
+          "end": 42.4,
+          "text": "like."
+        },
+        {
+          "start": 42.4,
+          "end": 45.0,
+          "text": "Stuff like this is great to add some extra life to your desk."
+        },
+        {
+          "start": 45.0,
+          "end": 46.76,
+          "text": "So follow for more robotics builds."
+        }
+      ]
+    }
+  ]
+}

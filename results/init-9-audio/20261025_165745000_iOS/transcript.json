@@ -1,0 +1,78 @@
+{
+  "video": "../videos/20261025_165745000_iOS.MP4",
+  "model": "small",
+  "device": "cpu",
+  "language": null,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 6.0,
+      "text": "Imagine a robot vacuum you build yourself, where every part is open and nothing phones home."
+    },
+    {
+      "start": 6.0,
+      "end": 10.0,
+      "text": "It's called Umwu, over 12,000 GitHub stars."
+    },
+    {
+      "start": 10.0,
+      "end": 14.0,
+      "text": "And flip the name upside down, it still reads Umwu."
+    },
+    {
+      "start": 14.0,
+      "end": 19.0,
+      "text": "A spinning lidar on top scans every wall, draws a map of your home."
+    },
+    {
+      "start": 18.474,
+      "end": 25.834,
+      "text": "and plans its own path. Inside a Raspberry Pi runs ROS2, the same software real"
+    },
+    {
+      "start": 25.834,
+      "end": 31.434,
+      "text": "robots use. No cloud, it works locally and it's designed to plug straight into"
+    },
+    {
+      "start": 31.434,
+      "end": 38.674,
+      "text": "Home Assistant. The body is 3D printed so you can fix it, hack it,"
+    },
+    {
+      "start": 36.948,
+      "end": 38.748,
+      "text": "or upgrade it."
+    },
+    {
+      "start": 38.748,
+      "end": 41.028,
+      "text": "Honest part, it's not buildable yet,"
+    },
+    {
+      "start": 41.028,
+      "end": 43.988,
+      "text": "but you can drive it in a simulator today."
+    },
+    {
+      "start": 43.988,
+      "end": 46.988,
+      "text": "Makers around the world are building it together."
+    },
+    {
+      "start": 46.988,
+      "end": 49.948,
+      "text": "Pick a module, brushes, fan, firmware,"
+    },
+    {
+      "start": 49.948,
+      "end": 51.588,
+      "text": "and help finish it."
+    },
+    {
+      "start": 51.588,
+      "end": 52.588,
+      "text": "Try it now."
+    }
+  ]
+}

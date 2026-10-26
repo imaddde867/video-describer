@@ -1,0 +1,2 @@
+# Original source videos are large binaries; keep them in Git LFS.
+*.MP4 filter=lfs diff=lfs merge=lfs -text

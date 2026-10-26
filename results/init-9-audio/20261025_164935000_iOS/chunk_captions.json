@@ -1,0 +1,106 @@
+{
+  "video": "../videos/20261025_164935000_iOS.MP4",
+  "windows": [
+    {
+      "index": 0,
+      "start": 0.0,
+      "end": 16.942,
+      "start_ts": "0:00.0",
+      "end_ts": "0:16.9",
+      "frames": 25,
+      "caption": "## Segment summary\nA person holds up a red, robot-like toy with glowing yellow eyes, then disassembles it to reveal its internal components: a round touchscreen module and a battery pack. The video transitions to show a website displaying product information for similar toys, specifically the \"Deskimon NEO\" model, which includes details about required hardware and purchase options.\n\n## Events\n<0:00.0> - A hand holds a red, robot-shaped toy with glowing yellow eyes. The toy is positioned in front of a computer monitor displaying a webpage.\n<0:03.3> - The hand rotates the red toy slightly, showing its side profile.\n<0:06.0> - The hand places the red toy down on a wooden desk surface.\n<0:06.7> - The hand picks up a white circular component containing an electronic circuit board.\n<0:08.0> - The hand holds the white component, revealing its internal circuitry.\n<0:10.7> - The hand turns the white component to show its back, which has a dark, circular screen area.\n<0:12.0> - The hand places the white component down on the desk next to the red toy.\n<0:12.7> - The hand picks up a black component containing a battery and wires.\n<0:14.0> - The hand holds the black component, showing the battery inside.\n<0:16.0> - The hand places the black component down on the desk next to the other parts.\n\n## Visible entities\n- A human hand (light skin tone)\n- A red, robot-shaped toy with glowing yellow eyes\n- A white, robot-shaped toy with glowing blue eyes (in the background)\n- A black, cat-shaped toy with glowing orange eyes (in the background)\n- A panda-shaped toy (in the background)\n- A computer monitor displaying a webpage\n- A wooden desk surface\n- A white circular component with an electronic circuit board\n- A black component containing a battery and wires\n- A beige circular component (partially visible)\n\n## On-screen text\n- A comment bubble: \"Is there a list of all items needed? Replying to gusechka_55\"\n- Text overlay: \"So, there really isn't\"\n- Text overlay: \"much that you actually\"\n- Text overlay: \"need to build one of\"\n- Text overlay: \"Is basically just this\"\n- Text overlay: \"screen over here, which\"\n- Text overlay: \"is a round touchscreen,\"\n- Text overlay: \"and then an optional\"\n- Text overlay: \"battery, but it also\"\n- Text overlay: \"works wired like that.\"\n- Text overlay: \"And basically, if you go\"\n- Text overlay: \"to my website and choose\"\n- Text overlay: \"any of my products, for\"\n- Text overlay: \"example, new over here,\"\n- Text overlay: \"you can see that it\"\n\n## Camera and framing\nThe camera remains mostly static throughout the segment, with slight movements to follow the hand's actions. The framing is consistent, focusing on the desk and the objects being handled.\n\n## Uncertainty\nNone. All visible elements and actions are clearly identifiable from the provided frames.",
+      "audio": "## Audio summary\nThe audio features a male voice discussing the design and features of a desk computer setup. The speaker mentions that the main component is a touchscreen monitor, which is connected to an optional battery or wired power source. Additionally, the speaker mentions that by visiting their website and selecting products such as the 'neoverse', customers can see the available options for their desk computer setup.\n## Speech\nThe speaker says, 'so there really isn't much that you actually need to build one of these desk him on it's basically just this screen over here which is around touchscreen and then an optional battery but it also works wired like that and basically if you go to my website and choose any of my products for example neoverse you can see that it shows.'",
+      "speech": [
+        {
+          "start": 0.0,
+          "end": 3.6,
+          "text": "So there really isn't much that you actually need to build one of these desky ones."
+        },
+        {
+          "start": 3.6,
+          "end": 7.04,
+          "text": "It's basically just this screen over here which is a round touch screen"
+        },
+        {
+          "start": 7.04,
+          "end": 11.12,
+          "text": "and then an optional battery but it also works wired like that."
+        },
+        {
+          "start": 11.12,
+          "end": 15.52,
+          "text": "And basically if you go to my website and choose any of my products for example Nio over here"
+        },
+        {
+          "start": 15.52,
+          "end": 17.04,
+          "text": "you can see that it shows"
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "start": 16.942,
+      "end": 33.885,
+      "start_ts": "0:16.9",
+      "end_ts": "0:33.9",
+      "frames": 25,
+      "caption": "## Segment summary\nThe video begins with a screen displaying a digital download for a 3D model called \"Neo - Deskimon,\" showing tabs for Details, Filaments, and Hardware. The user navigates through these tabs, clicking on \"Filaments\" to reveal color options and then \"Hardware\" to show required components like an ESP32-S3 display. The view then transitions to the Waveshare website, where the user selects the standard version of the display module priced at $29.99. Finally, the video cuts to a hand holding a physical prototype of the Deskimon, revealing its internal circuit board.\n\n## Events\n*   0:16.9 - The video opens on a computer screen displaying the product page for \"Neo - Deskimon,\" with a comment bubble asking, \"Is there a list of all items needed?\".\n*   0:18.9 - The cursor clicks on the \"Details\" tab, which shows information about the print file, including its size and compatibility.\n*   0:20.9 - The cursor clicks on the \"Filaments\" tab, revealing three color options: white, black, and red.\n*   0:22.3 - The cursor hovers over the black filament option, and a tooltip appears indicating \"Bambu PLA Matte Charcoal.\"\n*   0:24.9 - The cursor clicks on the \"Hardware\" tab.\n*   0:26.9 - The cursor hovers over the \"ESP32-S3 1.75-inch round AMOLED\" component listing.\n*   0:28.3 - The screen transitions to the Waveshare.com website, showing the product page for the ESP32-S3 Touch AMOLED display.\n*   0:30.9 - The cursor clicks on the \"Standard version\" option for the display module.\n*   0:32.3 - The video cuts to a close-up shot of a hand holding a physical prototype of the Deskimon, showing its internal circuit board.\n\n## Visible entities\n*   **People**: A person's hand is visible holding the physical Deskimon prototype.\n*   **Objects**: Several small, stylized figurines are arranged on the desk in front of the monitor. One is white with blue glowing eyes, another is black with orange glowing eyes, and a third is red with orange glowing eyes. There is also a partially visible panda figurine. Wires are visible connecting the figurines to the monitor.\n*   **Text/Signage**: The product page displays \"Neo - Deskimon,\" \"$7.99,\" \"One-time purchase for $7.99,\" \"Details,\" \"Filaments,\" \"Hardware,\" \"Intermediate,\" \"Multicolor,\" \"No AMS required,\" \"88g,\" \"4h 3m,\" \"180 x 180 x 180 mm,\" \"Bambu PLA Matte Charcoal,\" \"ESP32-S3 1.75-inch round AMOLED,\" \"Waveshare,\" \"$29.99,\" \"Standard version,\" and \"GPS version.\" The comment bubble reads, \"Is there a list of all items needed? Replying to gusechka_55.\"\n\n## On-screen text\n*   Is there a list of all items needed? Replying to gusechka_55\n*   Neo - Deskimon\n*   Arguably the chilliest Deskimon\n*   $7.99\n*   One-time purchase for $7.99\n*   Details\n*   Filaments\n*   Hardware\n*   Intermediate\n*   Multicolor\n*   No AMS required\n*   88g\n*   4h 3m\n*   180 x 180 x 180 mm\n*   Bambu PLA Matte Charcoal\n*   ESP32-S3 1.75-inch round AMOLED\n*   Waveshare\n*   $29.99\n*   Standard version\n*   GPS version\n\n## Camera and framing\nThe camera is mostly static, positioned to capture both the computer monitor and the figurines on the desk. There is a slight downward tilt towards the end of the segment to focus on the hand holding the prototype.\n\n## Uncertainty\nNone. All events and objects are clearly visible and identifiable within the provided frames.",
+      "audio": "The audio clip features a male voice discussing details related to a printing process. The speaker mentions specific filaments and the website where more information can be found. Additionally, the conversation briefly touches on a screen that can be used for a standard version of a product, which costs $29.99. There is no music or background sound present in the clip.",
+      "speech": [
+        {
+          "start": 16.942,
+          "end": 21.102,
+          "text": "some printing details and the exact filaments you need with some links but it also shows"
+        },
+        {
+          "start": 21.102,
+          "end": 25.662,
+          "text": "the hardware you need and for this one again that is that screen that goes to wayshare.com"
+        },
+        {
+          "start": 25.662,
+          "end": 30.262,
+          "text": "you can go to the standard version and it will be 29.99 which I guess is pretty fair"
+        },
+        {
+          "start": 30.262,
+          "end": 33.902,
+          "text": "for what you get but then also this screen is used in so many other"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "start": 33.885,
+      "end": 50.827,
+      "start_ts": "0:33.9",
+      "end_ts": "0:50.8",
+      "frames": 25,
+      "caption": "## Segment summary\nA person demonstrates a circular electronic device called a GoQuest, showing its assembled form and its internal circuit board. They also show a similar device with a different case, and point to a red plush toy while discussing alternative uses for the screen component. The video includes overlays of a social media comment asking for a parts list and screenshots of an online store and a social media post featuring the device's components.\n\n## Events\n<0:33.9> - A hand holds up a circular electronic device with its internal circuit board exposed.\n<0:35.2> - The hand places the device down and picks up a beige circular device with a black screen.\n<0:36.6> - The hand holds the beige device up, showing its screen which lights up to display the \"GoQuest\" interface.\n<0:37.9> - The hand taps the screen of the beige device.\n<0:39.2> - The hand places the beige device down on the desk.\n<0:40.6> - The hand picks up the beige device again and holds it up.\n<0:41.9> - The hand taps the screen of the beige device again.\n<0:43.2> - The hand places the beige device down on the desk.\n<0:44.6> - The hand reaches for a red plush toy with a white face and black headphones.\n<0:45.9> - The hand presses the face of the red plush toy, causing its eyes to light up yellow.\n<0:47.2> - The hand holds the red plush toy up.\n<0:48.6> - The hand places the red plush toy back on the desk.\n<0:49.9> - The hand moves away from the red plush toy.\n\n## Visible entities\n- A person's hand (light skin tone).\n- A red plush toy with a white face, black headphones, and yellow eyes.\n- A white plush toy with blue eyes.\n- A black plush toy with purple ears and yellow eyes.\n- A beige circular electronic device with a black screen (GoQuest).\n- A white circular electronic device with an exposed circuit board.\n- A computer monitor displaying a webpage with product listings and social media comments.\n- A keyboard visible on the monitor.\n\n## On-screen text\n- \"Is there a list of all items needed ?\"\n- \"Replying to gusechka_55\"\n- \"many other projects.\"\n- \"I use this one for\"\n- \"my GoQuest, which is\"\n- \"pretty cool as well.\"\n- \"And then also seen other\"\n- \"creators use it a lot\"\n- \"on their platforms as\"\n- \"This one was just posted\"\n- \"yesterday.\"\n- \"So, even if you were\"\n- \"not to like the Deskimon\"\n- \"itself, you could always\"\n- \"just use this screen in\"\n- \"something else.\"\n\n## Camera and framing\nThe camera is static throughout the segment, maintaining a consistent view of the desk, the objects on it, and the computer monitor in the background. The framing does not change.\n\n## Uncertainty\nNone. All visible actions and objects are clearly identifiable within the frames provided. The text overlays are fully legible. The context of the video is clear from the actions and on-screen text.",
+      "audio": "## Audio summary\n\nA male voice is speaking in English with a neutral mood. He says 'project I use this one for my go quest which is pretty cool as well and then also I've seen other creators use it a lot on their platforms as well this one was just posted yesterday so even if you were not to like the desk itself you could always just use the screen and something else.' The speech does not contain any specific names, products, or numbers mentioned.\n\n## Speech\n\nThe speaker mentions using a 'go quest' project and seeing other creators use a similar item on their platforms. However, the specific nature of the 'go quest' project or the item being referred to is not detailed in the provided transcript.\n\n## Delivery and tone\n\nThe speaker's tone is neutral and informative. There is no indication of any particular emotion or emphasis in his voice. The speech is delivered in a single continuous block without any audible cuts between takes.\n\n## Music and effects\n\nThere is no music present in this audio segment. Any sound effects mentioned are not specified in the transcript.\n\n## Sound off screen\n\nThe transcript does not mention any sounds coming from outside the visual field, such as speech from another room, pets, traffic, or notifications. It is possible that these sounds were present during the recording but did not make it into the final transcript.\n\n## Uncertainty\n\nThe transcript does not provide enough information to accurately determine the source of certain sounds. Muffled or overlapping speech, unclear words, and sounds that cannot be identified are indicated, but without additional context, it is impossible to specify what these might be. Additionally, the audio quality is described as quiet, which may affect the clarity of some sounds within the segment.",
+      "speech": [
+        {
+          "start": 33.885,
+          "end": 39.725,
+          "text": "projects. I used this one for my go-quest which is pretty cool as well and then also I've seen"
+        },
+        {
+          "start": 39.725,
+          "end": 45.725,
+          "text": "other creators use it a lot on their platforms as well. This one was disposed yesterday so even"
+        },
+        {
+          "start": 45.725,
+          "end": 50.045,
+          "text": "if you were not to like the desk amount itself you could always just use the screen and something"
+        },
+        {
+          "start": 50.045,
+          "end": 52.045,
+          "text": "else."
+        }
+      ]
+    }
+  ]
+}

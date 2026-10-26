@@ -1,0 +1,74 @@
+{
+  "video": "../videos/20261025_165416000_iOS.MP4",
+  "windows": [
+    {
+      "index": 0,
+      "start": 0.0,
+      "end": 19.85,
+      "start_ts": "0:00.0",
+      "end_ts": "0:19.9",
+      "frames": 30,
+      "caption": "## Segment summary\nA person introduces a small, white, cube-shaped AI device named \"Mac,\" which is designed to resemble early Macintosh computers. The device is shown on the person's shoulder, then held in hand, and later displayed on a keyboard. The video demonstrates its various facial expressions and shows the components used in its construction, including an OLED screen and an ESP32S3 microcontroller with a camera.\n\n## Events\n- 0:00.0 - A person wearing glasses and a black tank top has a small white cube device with glowing blue eyes resting on their shoulder.\n- 0:03.3 - The person holds the device in their hand, showing it to the camera.\n- 0:06.0 - The device is shown next to three miniature models of early Macintosh computers.\n- 0:07.3 - The device is placed on a purple cutting mat, and its screen changes to show different facial expressions: \"IDLE\" (two vertical blue eyes), then \"Sad\" (two downward-pointing blue eyes).\n- 0:10.7 - The device is shown from a different angle, with its screen displaying a \"Sleep Mode\" message.\n- 0:12.0 - The device is placed on a white keyboard, with text overlaying the image.\n- 0:14.7 - The video shows the components required to build the device: a white 3D-printed casing, a small OLED screen, and an ESP32S3 microcontroller with a camera.\n- 0:16.0 - The OLED screen is shown up close, with text indicating its size: \"0,96\" OLED\".\n- 0:18.0 - The ESP32S3 microcontroller with a camera is shown up close, with text indicating its components: \"ESP32S3 + Camera\".\n\n## Visible entities\n- A person with dark, curly hair, wearing glasses and a black tank top.\n- A small, white, cube-shaped device with a screen displaying blue eyes or text.\n- Three miniature models of early Macintosh computers.\n- A purple cutting mat with grid lines and measurements.\n- A white keyboard.\n- A white computer mouse.\n- A can of beverage.\n- A computer monitor displaying code.\n- A stack of clear plastic storage boxes.\n- A small camera module.\n- A 0.96\" OLED screen.\n- An ESP32S3 microcontroller.\n\n## On-screen text\n- \"This\"\n- \"This is DAY 1 of building AI BUDDY\"\n- \"Mac\"\n- \"I call him this way\"\n- \"because he reminds me of early Macintosh computers\"\n- \"IDLE\"\n- \"Sad\"\n- \"Mac has multiple faces\"\n- \"really easy to understand\"\n- \"Sleep Mode\"\n- \"in what\"\n- \"my name is Mac, it's 9:42PM\"\n- \"on Sunday July 5th, 2026\"\n- \"Requirements\"\n- \"0,96\" OLED\"\n- \"ESP32S3 + Camera\"\n- \"@AYKHANIAM\"\n\n## Camera and framing\nThe camera starts with a close-up shot of the person and the device on their shoulder, then cuts to a close-up of the device being held, then to a close-up of the device on a keyboard, and finally to close-ups of the components used in the device's construction. The camera remains mostly static during each shot, with occasional slight movements to adjust the framing.\n\n## Uncertainty\nThe video does not provide any information about the person's name, the specific model of the computer monitor, or the exact specifications of the components used in the device's construction. The text \"on Sunday July 5th, 2026\" is likely a fictional date used for demonstration purposes. The video does not show the device's functionality beyond displaying facial expressions and text messages.",
+      "audio": "The audio clip features a male voice discussing building a personal AI system. The speaker introduces himself as I am not sure what his actual name is, but refers to the AI system he is building as 'Mac'. The conversation then transitions into a discussion about the specifications of a display that is required for the project. There is no music or other sound effects present in the clip.",
+      "speech": [
+        {
+          "start": 0.0,
+          "end": 2.04,
+          "text": "This is day one of building my AI body."
+        },
+        {
+          "start": 2.04,
+          "end": 3.52,
+          "text": "My name is Aya Khan and this is Mac."
+        },
+        {
+          "start": 3.52,
+          "end": 7.32,
+          "text": "I call him this way because he reminds me of early Macintosh computers."
+        },
+        {
+          "start": 7.32,
+          "end": 15.08,
+          "text": "Mac has multiple faces so it's really easy to understand in what state he is."
+        },
+        {
+          "start": 15.08,
+          "end": 19.88,
+          "text": "So all you need 0.96 inch OLED display, ESP32S3."
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "start": 19.85,
+      "end": 39.7,
+      "start_ts": "0:19.9",
+      "end_ts": "0:39.7",
+      "frames": 30,
+      "caption": "## Segment summary\nA person assembles a small electronic device by connecting an ESP32S3 module with a camera to a 3D-printed case, then writes a Python script to integrate it with a GPT-Realtime-2 voice model. The final product, a small white box with a display, is shown worn on the person's shoulder.\n\n## Events\n*   `0:19.9 - 0:23.9` A hand holds up a small electronic module labeled \"ESP32S3 + Camera\".\n*   `0:23.9 - 0:27.9` The hands hold and rotate two white 3D-printed case pieces, showing their internal structure.\n*   `0:27.9 - 0:31.9` The person solder wires to a small display module, then connects the display, camera module, and other wires to the ESP32S3 board.\n*   `0:31.9 - 0:35.9` The assembled electronics are pushed into the 3D-printed case.\n*   `0:35.9 - 0:39.2` The person is shown wearing the completed device on their shoulder, with the display lit up.\n\n## Visible entities\n*   **People**: One person with curly hair and glasses, wearing a black top.\n*   **Objects**: A small ESP32S3 module with a camera, a small display module, wires, a 3D-printed white case, a magnifying glass, a soldering iron, a purple grid cutting mat, a computer monitor, a can of Monster Energy drink, a keyboard, and a small white robotic-looking device with a display.\n*   **Products**: ASUS monitor, Monster Energy drink can.\n*   **Text**: \"@AYKHANUM\" (Instagram handle), \"ESP32S3 + Camera\", \"3D printed case (can use cardboard paper)\", \"first I soldered the wires to the display\", \"then connected everything to the\", \"ESP32 and pushed it into the case\", \"I used GPT Realtime 2 as the voice model\", \"and wrote the Python script\", \"for the semantic memory\", \"comment 'build' for instruction\".\n\n## On-screen text\n*   \"@AYKHANUM\"\n*   \"ESP32S3 + Camera\"\n*   \"3D printed case (can use cardboard paper)\"\n*   \"first I soldered the wires to the display\"\n*   \"then connected everything to the\"\n*   \"ESP32 and pushed it into the case\"\n*   \"I used GPT Realtime 2 as the voice model\"\n*   \"and wrote the Python script\"\n*   \"for the semantic memory\"\n*   \"comment 'build' for instruction\"\n\n## Camera and framing\nThe camera is mostly static, with slight handheld movements. The framing changes from close-ups of the electronics to a wider shot showing the person wearing the device. The lighting is consistent, appearing to be indoor ambient light.\n\n## Uncertainty\nThe video is a compilation of shots, and the exact sequence of actions between frames is not fully visible. The text \"comment 'build' for instruction\" is a call to action for viewers, not an event within the video itself. The specific details of the Python script or the GPT-Realtime-2 model are not visible in the frames. The person's full face and expression are not always visible.",
+      "audio": "The audio clip features someone discussing the process of assembling a custom 3D printed body for a device, mentioning the use of an ESP32 microcontroller and a Real-Time Operating System (RTOS) as the voice model. The speaker also mentions using a Python script for semantic memory and mentions that the instructions will be provided upon request. There is no music or background noise present in the clip.",
+      "speech": [
+        {
+          "start": 19.85,
+          "end": 24.81,
+          "text": "with a built-in camera and a custom 3D printed body. First, I soldered the wires to the display,"
+        },
+        {
+          "start": 24.81,
+          "end": 28.49,
+          "text": "then connected everything to the ESP32 and pushed it into the case."
+        },
+        {
+          "start": 28.49,
+          "end": 33.29,
+          "text": "I used GPT Real Time 2 as the voice model and wrote the Python script for the semantic memory."
+        },
+        {
+          "start": 33.29,
+          "end": 35.69,
+          "text": "Comment build and I will send you the instruction."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "video": "../videos/20261025_165443000_iOS.MP4",
+  "model": "small",
+  "device": "cpu",
+  "language": null,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 3.68,
+      "text": "This is honestly the most unique desktop robot I've ever seen."
+    },
+    {
+      "start": 3.68,
+      "end": 6.48,
+      "text": "Besides chatting with you and reacting to your actions,"
+    },
+    {
+      "start": 6.48,
+      "end": 10.04,
+      "text": "what really sets it apart is that it's completely open source."
+    },
+    {
+      "start": 10.04,
+      "end": 11.94,
+      "text": "You can connect your own AI agent,"
+    },
+    {
+      "start": 11.94,
+      "end": 13.84,
+      "text": "control its motors and camera,"
+    },
+    {
+      "start": 13.84,
+      "end": 15.56,
+      "text": "and customize its expressions."
+    },
+    {
+      "start": 15.283,
+      "end": 18.003,
+      "text": "movements, personality, and voice."
+    },
+    {
+      "start": 18.003,
+      "end": 20.883,
+      "text": "You can basically turn it into your own personal robot."
+    },
+    {
+      "start": 20.883,
+      "end": 23.243,
+      "text": "The company also provides development tools"
+    },
+    {
+      "start": 23.243,
+      "end": 24.843,
+      "text": "so you can build your own software"
+    },
+    {
+      "start": 24.843,
+      "end": 26.043,
+      "text": "and experiment with it."
+    }
+  ]
+}

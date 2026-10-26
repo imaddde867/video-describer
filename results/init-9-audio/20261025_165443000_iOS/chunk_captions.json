@@ -1,0 +1,84 @@
+{
+  "video": "../videos/20261025_165443000_iOS.MP4",
+  "windows": [
+    {
+      "index": 0,
+      "start": 0.0,
+      "end": 15.283,
+      "start_ts": "0:00.0",
+      "end_ts": "0:15.3",
+      "frames": 23,
+      "caption": "## Segment summary\nA person interacts with a small, cube-shaped robot named \"StackChan\" on a desk. The robot's screen displays a simple face and responds to touch and voice commands. The user also configures the robot's settings via a smartphone app, selecting an AI model and language. The robot is shown both held by hand and placed on its stand.\n\n## Events\n- 0:00.0 - A hand holds the StackChan robot, which displays a simple face on its screen.\n- 0:01.3 - The robot's screen changes to a different facial expression.\n- 0:02.0 - A finger taps the robot's screen, which then displays an \"AI.AGENT\" interface.\n- 0:02.7 - The robot's screen shows a text bubble with \"mstack-stack-chan/1.4.4\".\n- 0:03.3 - The robot is placed on its stand on a white desk, next to a laptop.\n- 0:04.0 - The robot's screen displays a text bubble reading \"You sound a bit surprised!\".\n- 0:05.3 - A hand hovers over the robot, causing its screen to display a heart symbol.\n- 0:06.7 - The robot is shown from a wider angle on the desk.\n- 0:08.0 - The robot's screen displays a simple face.\n- 0:09.3 - The robot's screen displays a simple face.\n- 0:10.7 - The robot's screen displays a simple face.\n- 0:12.0 - The robot's screen displays a simple face.\n- 0:13.3 - The robot's screen displays a simple face.\n- 0:14.7 - The robot's screen displays a simple face.\n\n## Visible entities\n- A person's hand (light skin tone).\n- A small, white, cube-shaped robot named \"StackChan\" with a screen on its front.\n- A black stand for the robot.\n- A white desk.\n- A laptop (silver-colored, partially visible).\n- A white keyboard (partially visible).\n- A smartphone (silver-colored, used for configuration).\n- A white box (partially visible).\n\n## On-screen text\n- \"@PixelNeonLab\" (visible in multiple frames, likely a watermark).\n- \"StackChan\" (printed on the side of the robot).\n- \"AI.AGENT\" (displayed on the robot's screen).\n- \"mstack-stack-chan/1.4.4\" (displayed in a text bubble on the robot's screen).\n- \"You sound a bit surprised!\" (displayed in a text bubble on the robot's screen).\n- \"Skye (en-US)\" (displayed on the smartphone app).\n- \"Normal\" (displayed on the smartphone app).\n- \"0\" (displayed on the smartphone app).\n- \"Save\" (displayed on the smartphone app).\n- \"MCP\" (displayed on the smartphone app).\n- \"Offline\" (displayed on the smartphone app).\n- \"Access Point Status\" (displayed on the smartphone app).\n- \"Access point address\" (displayed on the smartphone app).\n- \"Language\" (displayed on the smartphone app).\n- \"English\" (displayed on the smartphone app).\n- \"LLM Model\" (displayed on the smartphone app).\n- \"Xiaozhi Lite\" (displayed on the smartphone app).\n- \"Qwen\" (displayed on the smartphone app).\n- \"DeepSeek V4 (Fast)\" (displayed on the smartphone app).\n- \"DouBao Seed 2.0 (Delayed)\" (displayed on the smartphone app).\n- \"ASR Speed\" (displayed on the smartphone app).\n- \"Normal\" (displayed on the smartphone app).\n- \"Settings\" (displayed on the smartphone app).\n- \"My StackChan\" (displayed on the smartphone app).\n- \"Change Device Name\" (displayed on the smartphone app).\n- \"AI Agent Config\" (displayed on the smartphone app).\n- \"MCP\" (displayed on the smartphone app).\n- \"Chat History\" (displayed on the smartphone app).\n- \"Unbind & Reset\" (displayed on the smartphone app).\n- \"Add a new StackChan\" (displayed on the smartphone app).\n- \"Version\" (displayed on the smartphone app).\n- \"12:01\" (displayed on the smartphone screen).\n- \"17:29\" (displayed on the smartphone screen).\n- \"CAMERA\" (displayed on the smartphone screen).\n\n## Camera and framing\nThe camera is mostly static, with slight pans and zooms to follow the robot and the person's hand. The framing changes from close-ups of the robot and hand to wider shots showing the robot on the desk with the laptop and keyboard. The lighting is consistent and bright.\n\n## Uncertainty\nNone. All events and objects are clearly visible and identifiable.",
+      "audio": "## Audio summary\nThe audio clip features a male voice discussing unique characteristics of a desktop robot. The speech is delivered in English with an excited mood. There are no other voices present, and no music or sound effects are detected. The speaker's main focus is on describing the robot's open-source nature, allowing for customization of its AI agent, motors, camera, and expressions.\n## Speech\nThe speaker says, 'this is honestly the most unique desktop robot I've ever seen.' He continues, 'besides chatting with you and reacting to your actions, what really sets it apart is that it's completely open source.' The speaker then mentions that users can connect their own AI agent, control its motors and camera, and customize its expressions.\n## Delivery and tone\nThe speaker is male, delivering the speech in an excited mood. There are no other voices present in the clip.\n## Music and effects\nThere are no music or sound effects detected in the audio clip.\n## Sound off screen\nThere are no sounds from outside the clip that could be heard by a viewer watching only the picture.\n## Uncertainty\nThe speaker's accent is not clear due to the low quality of the recording. Additionally, some words in the speech may be unclear or muffled due to poor audio quality.",
+      "speech": [
+        {
+          "start": 0.0,
+          "end": 3.68,
+          "text": "This is honestly the most unique desktop robot I've ever seen."
+        },
+        {
+          "start": 3.68,
+          "end": 6.48,
+          "text": "Besides chatting with you and reacting to your actions,"
+        },
+        {
+          "start": 6.48,
+          "end": 10.04,
+          "text": "what really sets it apart is that it's completely open source."
+        },
+        {
+          "start": 10.04,
+          "end": 11.94,
+          "text": "You can connect your own AI agent,"
+        },
+        {
+          "start": 11.94,
+          "end": 13.84,
+          "text": "control its motors and camera,"
+        },
+        {
+          "start": 13.84,
+          "end": 15.56,
+          "text": "and customize its expressions."
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "start": 15.283,
+      "end": 30.567,
+      "start_ts": "0:15.3",
+      "end_ts": "0:30.6",
+      "frames": 23,
+      "caption": "## Segment summary\nA person uses a smartphone app to configure a small, cube-shaped robot named \"StackChan,\" selecting a voice and adjusting its avatar's motion parameters. The robot, placed on a stand, then displays a series of facial expressions and text messages, demonstrating its interactive capabilities before being picked up and placed back down.\n\n## Events\n- 0:15.3 - A finger taps the \"Alvin (en-US)\" option in a voice selection list on a smartphone screen.\n- 0:16.0 - The smartphone screen transitions to the \"Agent Setting\" menu, showing options for Language, LLM Model, Voice, Speed, Pitch, and ASR Speed.\n- 0:16.6 - The smartphone screen displays the \"Agent Setting\" menu with the robot's image, showing \"English\" as the selected language and \"Qwen\" as the LLM model.\n- 0:17.3 - The smartphone screen shows the \"Motion\" tab of the avatar settings, with sliders for \"Left Eye\" and \"Right Eye\" parameters.\n- 0:18.0 - A finger adjusts the \"rotation\" slider for the \"Left Eye\" parameter on the smartphone screen.\n- 0:18.6 - The smartphone screen shows the \"Avatar\" tab of the settings, with the robot's avatar displayed.\n- 0:19.3 - A hand holds the robot, which displays a neutral facial expression on its screen.\n- 0:20.0 - The robot's screen displays an angry expression.\n- 0:20.6 - The robot's screen returns to a neutral expression.\n- 0:21.3 - The robot's screen displays a surprised expression.\n- 0:22.0 - The robot's screen displays a sad expression.\n- 0:22.6 - The robot's screen displays a happy expression.\n- 0:23.3 - The robot's screen displays a text message: \"This is absolutely incredible!\".\n- 0:24.0 - The robot's screen displays a text message: \"% search_music...\".\n- 0:24.6 - The robot's screen displays a text message: \"I found some songs!\".\n- 0:25.3 - A hand picks up the robot from its stand.\n- 0:26.0 - The robot is placed back on its stand.\n- 0:26.6 - The robot's screen displays a neutral expression.\n- 0:27.3 - The robot's screen displays a neutral expression.\n- 0:28.0 - The robot's screen displays a neutral expression.\n- 0:28.6 - The robot's screen displays a neutral expression.\n- 0:29.3 - The robot's screen displays a neutral expression.\n- 0:30.0 - The robot's screen displays a neutral expression.\n\n## Visible entities\n- A person's hand.\n- A smartphone.\n- A small, cube-shaped robot named \"StackChan\" with a screen displaying facial expressions and text messages.\n- A black stand for the robot.\n- A white desk.\n- A laptop screen in the background.\n- A keyboard in the foreground.\n- A book titled \"BRAND. BALANCE. BRAND DOCUMENTARY MAGAZINE\" and \"THE HOME\" in the background.\n\n## On-screen text\n- \"Skye (en-US)\"\n- \"Harmony (en-US)\"\n- \"Cutey (en-US)\"\n- \"Brayan (en-US)\"\n- \"Alvin (en-US)\"\n- \"Smith (en-GB)\"\n- \"Emily (en-GB)\"\n- \"sarah (en-AU)\"\n- \"Dryw (en-AU)\"\n- \"\u6e7e\u6e7e\u5c0f\u4f55\"\n- \"vivi\"\n- \"\u90bb\u5bb6\u5973\u5b69\"\n- \"Agent Setting\"\n- \"Language: English\"\n- \"LLM Model: Qwen\"\n- \"Voice: Skye (en-\"\n- \"Speed: Normal\"\n- \"Pitch: 0\"\n- \"ASR Speed: Normal\"\n- \"@PIXELNEONLAB\"\n- \"This is absolutely incredible!\"\n- \"% search_music...\"\n- \"I found some songs!\"\n\n## Camera and framing\nThe camera is handheld and follows the action, panning and tilting to keep the robot and the person's hand in frame. The camera moves from a close-up of the smartphone screen to a close-up of the robot.\n\n## Uncertainty\nNone.",
+      "audio": "The audio clip features a male voice discussing various aspects of a product, including its movements, personality, and voice. The speaker also mentions that the company provides development tools for building custom software. There are no other voices present in the clip. The speech is delivered in English with a neutral mood. There are no music or sound effects present in the clip. The audio quality is clear and there are no overlaps or muffled words.",
+      "speech": [
+        {
+          "start": 15.283,
+          "end": 18.003,
+          "text": "movements, personality, and voice."
+        },
+        {
+          "start": 18.003,
+          "end": 20.883,
+          "text": "You can basically turn it into your own personal robot."
+        },
+        {
+          "start": 20.883,
+          "end": 23.243,
+          "text": "The company also provides development tools"
+        },
+        {
+          "start": 23.243,
+          "end": 24.843,
+          "text": "so you can build your own software"
+        },
+        {
+          "start": 24.843,
+          "end": 26.043,
+          "text": "and experiment with it."
+        }
+      ]
+    }
+  ]
+}

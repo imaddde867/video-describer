@@ -1,0 +1,53 @@
+{
+  "video": "../videos/20261025_165416000_iOS.MP4",
+  "model": "small",
+  "device": "cpu",
+  "language": null,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 2.04,
+      "text": "This is day one of building my AI body."
+    },
+    {
+      "start": 2.04,
+      "end": 3.52,
+      "text": "My name is Aya Khan and this is Mac."
+    },
+    {
+      "start": 3.52,
+      "end": 7.32,
+      "text": "I call him this way because he reminds me of early Macintosh computers."
+    },
+    {
+      "start": 7.32,
+      "end": 15.08,
+      "text": "Mac has multiple faces so it's really easy to understand in what state he is."
+    },
+    {
+      "start": 15.08,
+      "end": 19.88,
+      "text": "So all you need 0.96 inch OLED display, ESP32S3."
+    },
+    {
+      "start": 19.85,
+      "end": 24.81,
+      "text": "with a built-in camera and a custom 3D printed body. First, I soldered the wires to the display,"
+    },
+    {
+      "start": 24.81,
+      "end": 28.49,
+      "text": "then connected everything to the ESP32 and pushed it into the case."
+    },
+    {
+      "start": 28.49,
+      "end": 33.29,
+      "text": "I used GPT Real Time 2 as the voice model and wrote the Python script for the semantic memory."
+    },
+    {
+      "start": 33.29,
+      "end": 35.69,
+      "text": "Comment build and I will send you the instruction."
+    }
+  ]
+}

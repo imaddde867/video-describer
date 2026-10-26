@@ -1,5 +1,5 @@
 {
-  "video": "/home/imad/Downloads/OneDrive_1_10-26-2026/20261025_164350000_iOS.MP4",
+  "video": "../videos/20261025_164350000_iOS.MP4",
   "probe": {
     "duration": 49.4,
     "width": 720,
@@ -8,23 +8,27 @@
     "has_audio": true
   },
   "config": {
-    "chunk_seconds": 30.0,
-    "fps": 1.0,
-    "max_frames": 48,
-    "width": 896,
+    "chunk_seconds": 25.0,
+    "fps": 1.5,
+    "max_frames": 36,
+    "width": 720,
     "workers": 3,
     "focus": null,
     "summarise": true,
-    "audio": true
+    "audio": true,
+    "transcript": true,
+    "asr_model": "small",
+    "asr_device": "cpu",
+    "asr_language": null
   },
   "windows": 2,
   "frames_per_window": [
-    25,
-    25
+    36,
+    36
   ],
   "chunk_seconds": 24.7,
-  "sampled_fps": 1.0,
-  "width": 896,
+  "sampled_fps": 1.457,
+  "width": 720,
   "model": "qwen3-vl-8b",
   "base_url": "http://127.0.0.1:8000/v1",
   "focus": null,
@@ -32,6 +36,8 @@
   "audio_model": "qwen2-audio-7b",
   "audio_base_url": "http://127.0.0.1:8001/v1",
   "audio_seconds": 1.9,
-  "caption_seconds": 36.2,
-  "total_seconds": 170.7
+  "caption_seconds": 34.5,
+  "total_seconds": 70.3,
+  "transcript_model": null,
+  "transcript_seconds": 0.0
 }
