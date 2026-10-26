@@ -2,3 +2,6 @@
 # vLLM bundles the matching CUDA build of torch; do not pin torch separately.
 vllm==0.32.0
 openai>=1.99,<4
+# Speech transcription, lane three: runs in-process, weights fetched on first
+# use into the standard HF cache (a few hundred MB for `small`).
+faster-whisper>=1.1

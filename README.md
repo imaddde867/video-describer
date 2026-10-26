@@ -13,8 +13,10 @@ Give it recorded footage and it returns, per video:
 - an analysis of what the same window *sounds* like — what is said and what it
   means, how it is said, music and tool sounds, and sound whose source is off
   screen,
-- a fused report that states where the two readings agree and where they
-  diverge, plus explicit gaps in each of them.
+- a verbatim transcript of the spoken words, every utterance with the time it
+  starts, transcribed locally,
+- a fused report that states where the readings agree and where they diverge,
+  plus explicit gaps in each of them.
 
 ## The harness
 
@@ -62,7 +64,8 @@ something the frames never show, or an on-screen claim the audio undermines.
 - `ffmpeg` and `ffprobe` on `PATH`.
 - [uv](https://docs.astral.sh/uv/), which supplies a supported Python 3.12
   interpreter (vLLM does not support 3.14).
-- ~30 GB of disk for the weights.
+- ~30 GB of disk for the weights, plus a few hundred MB for the faster-whisper
+  transcription weights.
 
 ## Install
 
@@ -70,9 +73,11 @@ something the frames never show, or an on-screen claim the audio undermines.
 ./install.sh          # or ./install.sh --dev, to also get pytest and ruff
 ```
 
-This creates `.venv`, installs vLLM and the OpenAI client, and downloads
-`Qwen/Qwen3-VL-8B-Instruct-FP8` (~10 GB, vision) and
-`Qwen/Qwen2-Audio-7B-Instruct` (~17 GB, audio) into `models/`.
+This creates `.venv`, installs vLLM, the OpenAI client and faster-whisper, and
+downloads `Qwen/Qwen3-VL-8B-Instruct-FP8` (~10 GB, vision) and
+`Qwen/Qwen2-Audio-7B-Instruct` (~17 GB, audio) into `models/`, plus the
+faster-whisper `small` transcription weights (a few hundred MB, into the
+standard cache).
 
 ## Usage
 
@@ -101,6 +106,18 @@ Audio is analysed whenever the source has a soundtrack. `--no-audio` turns the
 second lane off, which halves the model calls for silent footage or when only
 the picture matters.
 
+Speech is transcribed locally by the same token: the pipeline runs
+faster-whisper in-process on each window's audio — no server, no account — and
+writes every utterance with its start time into the report and
+`transcript.json`. `--no-transcript` skips it. The ASR defaults run on the CPU
+so the lanes keep the GPU to themselves; raise the model or move it:
+
+```bash
+./describe_video.py clip.mp4 --asr-model medium          # or a local path
+./describe_video.py clip.mp4 --asr-device cuda           # with VRAM to spare
+./describe_video.py clip.mp4 --asr-language en            # skip auto-detection
+```
+
 ### Named experiments
 
 `run_experiment.sh` starts whichever lanes are down, runs the pipeline into
@@ -116,7 +133,8 @@ VLM_FPS=1.5 VLM_CHUNK=25 VLM_MAX_FRAMES=36 VLM_WIDTH=720 VLM_WORKERS=3 \
 `VLM_FPS`, `VLM_CHUNK`, `VLM_MAX_FRAMES`, `VLM_WIDTH`, `VLM_WORKERS` and
 `VLM_FOCUS` map to the flags below; `VLM_SKIP_EXISTING=1` resumes a batch,
 `VLM_NO_SUMMARY=1` skips the fusion pass, `VLM_NO_AUDIO=1` skips the audio lane,
-and `VLM_AUTOSTART=0` leaves the model servers alone.
+`VLM_NO_TRANSCRIPT=1` skips speech transcription, `VLM_ASR_MODEL` picks a
+different whisper model, and `VLM_AUTOSTART=0` leaves the model servers alone.
 
 To rebuild `RESULTS.md` and `run.json` for an existing results directory —
 without a GPU, and without touching the reports:
@@ -136,6 +154,10 @@ without a GPU, and without touching the reports:
 | `--workers` | `3` | Windows analysed in parallel, in each lane. |
 | `--focus` | — | What you care about, e.g. `"safety equipment"`. |
 | `--no-audio` | off | Skip the audio lane. |
+| `--no-transcript` | off | Skip speech transcription. |
+| `--asr-model` | `small` | faster-whisper model size or a local path. |
+| `--asr-device` | `cpu` | ASR device: `cpu`, `cuda` or `auto`. |
+| `--asr-language` | auto | Language code (e.g. `en`); empty auto-detects. |
 | `--skip-existing` | off | Resume a batch without redoing finished videos. |
 | `--no-summary` | off | Skip the fusion pass; keep the per-window readings only. |
 | `--keep-frames` | off | Keep sampled frames and audio clips, for checking a claim against pixels. |
@@ -159,8 +181,9 @@ Typical choices:
 
 | File | Contents |
 |---|---|
-| `description.md` | The report: overview, timeline, spoken content, voice and sound, where sound and picture meet, recurring elements, notable details, gaps — then every window's picture and sound readings. |
-| `chunk_captions.json` | Each window's vision caption and audio analysis with their exact source time range. |
+| `description.md` | The report: overview, timeline, spoken content, voice and sound, where sound and picture meet, recurring elements, notable details, gaps — the verbatim transcript — then every window's picture, sound and spoken readings. |
+| `chunk_captions.json` | Each window's vision caption, audio analysis and verbatim speech segments, with their exact source time range. |
+| `transcript.json` | The whole video's speech, model and language used. Present only when transcription ran. |
 | `meta.json` | Probe results, requested and effective sampling parameters, timings for each lane. |
 
 The directory root gets two generated files, `RESULTS.md` and `run.json`, with
@@ -177,14 +200,22 @@ the same content in human and machine form. They are rewritten on every run.
    timestamps.
 5. The window's audio goes to the audio model, which is asked what is heard and
    what it means — not for a transcript.
-6. The two readings are fused into one report that keeps them apart where they
-   disagree.
+6. The same audio goes to faster-whisper, running in-process, which produces a
+   verbatim transcript: every utterance with the time it starts.
+7. The writings are fused into one report that keeps the readings apart where
+   they disagree. A video of more than about two dozen windows is condensed
+   first: consecutive batches become digests that keep the picture and sound
+   accounts separate, so a long video is still covered end to end.
+8. Whoever the readings reached — windows or digests — the finished report is
+   stitched section by section in reading order, and a section any pass failed
+   to write is recovered by one completion pass instead of going missing.
 
 Windows are processed concurrently within each lane; vLLM batches them on the
 GPU. Replies are checked before use: a reading that stops on the token limit is
 retried once with double the budget, and one that collapses into a repetition
 loop is retried with a mild repetition penalty. Reports missing a section they
-were asked for are flagged in `RESULTS.md` rather than passed off as complete.
+were asked for are flagged in `RESULTS.md` rather than passed off as complete,
+and the same check drives the in-program repair pass first.
 
 ## Performance
 
@@ -198,13 +229,21 @@ both lanes) and much faster afterwards. Cost tracks generated tokens rather than
 sampled frames, and the audio lane adds one call per window that is cheap by
 comparison — a 25 s window is a handful of audio tokens.
 
+A second, audio-plus-transcript run over nine maker-project videos is published
+as a reproducible case study in
+[`results/init-9-audio/`](results/init-9-audio/README.md). It includes the
+original videos via Git LFS, per-video reports, machine-readable settings and
+coverage, and a clearly limited independent GLM comparison.
+
 ## Limitations
 
 - **Audio understanding is interpretation.** The audio model hears speech, tone,
   music and events, but it is a 7B model: treat descriptions of emotion, intent
   or "who is speaking" as inference, not measurement.
-- **No word-level alignment.** Sound is analysed per window, not per lip
-  movement; quoting a sentence does not give you its exact onset time.
+- **Alignment is per utterance.** The transcript gives the time each utterance
+  starts, not word boundaries; quoting a sentence does not give the exact onset
+  of its fourth word. Whisper hears as well as it hears — accented, overlapping
+  or muffled speech can come out wrong.
 - **Sampling is sparse.** At 1 fps, 29 of every 30 frames are never seen, so a
   brief visual event can be missed. Raise `--fps` for fast action. The audio
   lane hears every second, so an event the eye misses may still appear.
@@ -217,8 +256,9 @@ comparison — a 25 s window is a handful of audio tokens.
   the last sampled frame only shows it starting.
 - **Text reading degrades** on small or low-contrast on-screen text at the
   default `--width`.
-- **A section can go missing.** The fusion pass occasionally drops one of its
-  headings, usually when generated text ran long; `RESULTS.md` flags it.
+- **A section can go missing.** The report is stitched after generation, and a
+  section any pass dropped is rewritten by a completion pass; what even that
+  cannot recover still shows up flagged in `RESULTS.md`.
 - **One GPU, one video at a time.** Run batches sequentially.
 
 ## Troubleshooting
@@ -254,6 +294,10 @@ VLM_PORT=8000 AUDIO_PORT=8001 ./serve.sh start
 lane before starting work. `./serve.sh status` says which lane is down.
 
 **`Connection refused`.** Check both endpoints directly:
+
+**`transcript skipped: the faster-whisper package is missing`.** The transcript
+lane is optional but recommended; install it with `./install.sh` again (or
+`uv pip install -r requirements.txt`).
 
 ```bash
 ./serve.sh status

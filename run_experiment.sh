@@ -9,6 +9,8 @@
 #   VLM_SKIP_EXISTING=1  resume a batch
 #   VLM_NO_SUMMARY=1     skip the aggregate pass
 #   VLM_NO_AUDIO=1       vision only, skip the audio lane
+#   VLM_NO_TRANSCRIPT=1  skip the verbatim speech transcript
+#   VLM_ASR_MODEL        faster-whisper model size (default: small)
 #   VLM_AUTOSTART=0      do not start the models if they are down
 #
 set -euo pipefail
@@ -17,7 +19,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 
 usage() {
-  sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -61,6 +63,8 @@ ARGS=(--out-dir "$OUT")
 [[ "${VLM_SKIP_EXISTING:-0}" == "1" ]] && ARGS+=(--skip-existing)
 [[ "${VLM_NO_SUMMARY:-0}" == "1" ]] && ARGS+=(--no-summary)
 [[ "${VLM_NO_AUDIO:-0}" == "1" ]] && ARGS+=(--no-audio)
+[[ "${VLM_NO_TRANSCRIPT:-0}" == "1" ]] && ARGS+=(--no-transcript)
+[[ -n "${VLM_ASR_MODEL:-}" ]] && ARGS+=(--asr-model "$VLM_ASR_MODEL")
 
 echo "experiment:  $NAME"
 echo "results:     $OUT"

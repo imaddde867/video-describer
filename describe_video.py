@@ -11,6 +11,20 @@ reported; the fusion pass then states where the two agree and where they
 diverge. Keeping the lanes separate means each modality is handled by a model
 that specialises in it, instead of one model splitting its capacity.
 
+A third lane transcribes the spoken words. faster-whisper runs in-process on
+each window's audio and records every utterance with the time it starts, so
+what was literally said — names, numbers, prices — reaches the aggregate pass
+verbatim instead of through an audio model's paraphrase, and the report
+carries it as plain text.
+
+A video with more windows than roughly a couple of dozen cannot feed its
+readings to one pass whole: the middle of the video gets squeezed out. Those
+readings are condensed first — consecutive batches become digests that keep
+the picture and sound accounts separate — and the report reads the digests
+instead. Whichever route the readings take, the finished report is stitched
+section by section in reading order, and a section any pass failed to write
+is recovered by one extra completion pass rather than missing silently.
+
 Usage:
     ./describe_video.py clip.mp4
     ./describe_video.py recordings/*.mp4 --fps 2 --focus "safety equipment"
@@ -38,13 +52,13 @@ import tempfile
 import time
 import urllib.request
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 VIDEO_SUFFIXES = {
     ".mp4",
@@ -278,6 +292,61 @@ those omissions is how this report has gone wrong before.
 Do not invent anything that is not supported by the readings below.
 """
 
+AGGREGATE_TRANSCRIPT_NOTICE = """\
+A TRANSCRIPT block follows: the video's spoken words as an automatic system
+heard them, one utterance per line with the time it starts. Use it for exact
+wording — names, numbers, prices — and for when speech starts; the audio
+reading paraphrases what the words mean, and is bound by what its own system
+can make out.\n"""
+
+# Long-video digest: the prompt condensing a batch of window readings into a
+# digest the later passes can read whole. The digest keeps the two accounts
+# separate, so the fusion pass can still weigh one against the other.
+DIGEST_INTRO = """\
+Below are two readings of {n} consecutive windows of one video ({duration}
+long, windows of about {chunk:g} seconds): CAPTIONS from a vision model that
+saw sampled frames and could not hear, and AUDIO from an audio model that
+heard each window and could not see. Neither model knew what the other
+reported. You are condensing one span of {span:g} seconds into one digest.\n"""
+
+DIGEST_PREAMBLE = (
+    "You are condensing part of one video. The final report reads your digest, "
+    "never the windows themselves, so every observation has to reach it."
+)
+
+DIGEST_SECTIONS = (
+    (
+        "Picture",
+        "A chronological bullet list `<timestamp> - <what happens>` covering the "
+        "whole span with the windows' own ABSOLUTE timestamps — they are the "
+        "only anchor the final report will have. Merge repeated events into one "
+        "line with its period. After the list, one short paragraph on what the "
+        "frames are mostly made of: setting and entities across the span, camera "
+        "changes, anything dense in on-screen text. Quote the on-screen wording "
+        "that matters verbatim instead of paraphrasing it.",
+    ),
+    (
+        "Sound",
+        "What is said, with when it starts when the transcript makes it knowable, "
+        "and the arguments' conclusions kept separate from the exact wording; "
+        "delivery changes; music and foreground sounds with their spans. Quote "
+        "the names, numbers and prices the transcript carries verbatim.",
+    ),
+    (
+        "Divergence",
+        "At most three points where the sound reading and picture reading "
+        "genuinely disagree, or where one explains the other. The sound reading "
+        "covering less than the picture is narrower coverage, not a "
+        'disagreement. Write "none" when there is nothing worth noting.',
+    ),
+)
+
+DIGEST_RULES = """\
+Timestamps stay absolute throughout the digest. Keep the distinct wording of
+quoted speech and on-screen text; a digest that paraphrases a name or price is
+losing exactly what the final report needs from it.
+"""
+
 # The report is written in three bounded calls instead of one. Asked for all
 # eight sections at once from two long readings, the model padded, ran past its
 # budget and looped on its last line; each pass below finishes on its own, and
@@ -364,6 +433,111 @@ def report_sections(with_audio: bool) -> tuple[str, ...]:
     sections += AGGREGATE_SECTIONS_CLOSING
     return tuple(name for name, _ in sections)
 
+
+def section_specs(with_audio: bool) -> dict[str, str]:
+    """The instruction each report section carries, by name."""
+    sections = AGGREGATE_SECTIONS_OPENING
+    if with_audio:
+        sections += AGGREGATE_SECTIONS_SOUND
+    sections += AGGREGATE_SECTIONS_CLOSING
+    return dict(sections)
+
+
+REPAIR_BASE_TOKENS = 500
+REPAIR_TOKENS_PER_SECTION = 400
+
+
+def repair_pass(sections: tuple[str, ...], with_audio: bool) -> ReportPass | None:
+    """The completion pass rewriting the sections earlier passes dropped.
+
+    Asked to write everything at once, the model padded and looped — the
+    report is only ever extended after a pass was cut. A repair pass gets a
+    small, focused job, so its budget is per section rather than per window.
+    """
+    if not sections:
+        return None
+    specs = section_specs(with_audio)
+    return ReportPass(
+        "repair",
+        (
+            "You are completing part of one report on the whole video. Passes "
+            "before yours were asked for more and failed to write the following "
+            "sections; write them now, and nothing else."
+        ),
+        tuple((name, specs[name]) for name in sections),
+        min(
+            AGGREGATE_MAX_TOKENS,
+            REPAIR_BASE_TOKENS + REPAIR_TOKENS_PER_SECTION * len(sections),
+        ),
+    )
+
+
+SECTION_HEADING = re.compile(r"^##\s+(.+?)\s*$")
+
+
+def split_pass_output(text: str) -> dict[str, str]:
+    """One pass output split into `{section: body}`, first occurrence wins.
+
+    Anything before the first heading — a preamble the model echoed instead of
+    a heading — has no section to belong to and is left out.
+    """
+    found: list[tuple[str, list[str]]] = []
+    for line in text.splitlines():
+        match = SECTION_HEADING.match(line)
+        if match:
+            found.append((match.group(1), []))
+        elif found:
+            found[-1][1].append(line)
+    collected: dict[str, str] = {}
+    for name, body in found:
+        cleaned = "\n".join(body).strip()
+        if name not in collected and cleaned:
+            collected[name] = cleaned
+    return collected
+
+
+def assemble_report(
+    passes: Sequence[ReportPass], outputs: Mapping[str, str]
+) -> tuple[str, list[str]]:
+    """Stitch pass outputs into one report, in the sections' reading order.
+
+    Each section's body comes from a pass that was asked for it — a heading
+    echoed in another pass's output cannot supply a section it does not own —
+    and each section stands in its canonical position once, whatever order the
+    calls ran in. A section no pass wrote is returned as missing; one a later
+    completion pass recovered is not, however early its own writer failed.
+    """
+    bodies: dict[str, str] = {}
+    for step in passes:
+        blocks = split_pass_output(outputs.get(step.name, ""))
+        for name, _ in step.sections:
+            if name in blocks and name not in bodies:
+                bodies[name] = blocks[name]
+    written: list[str] = []
+    seen: set[str] = set()
+    missing: list[str] = []
+    for step in passes:
+        for name, _ in step.sections:
+            if name in seen:
+                continue
+            seen.add(name)
+            if name in bodies:
+                written.append(f"## {name}\n\n{bodies[name]}")
+            else:
+                missing.append(name)
+    return "\n\n".join(written), missing
+
+
+# Beyond a couple of dozen windows the readings no longer fit one pass's
+# prompt whole, and the middle of the video is what gets squeezed out. Those
+# readings are condensed first: consecutive batches become digests that keep
+# the picture and sound accounts apart, and the report reads the digests.
+AGGREGATE_MAX_RAW_WINDOWS = 24
+DIGEST_BATCH_WINDOWS = 12
+
+DIGEST_BASE_TOKENS = 800
+DIGEST_TOKENS_PER_WINDOW = 250
+DIGEST_MAX_TOKENS = 4000
 
 # Captions of text-dense footage run well past 1400 tokens and were being cut
 # mid-sentence; the aggregate pass needs room to reach its last sections. Budget
@@ -824,13 +998,86 @@ class Describer:
 
 
 # --------------------------------------------------------------------------- #
+# Transcript (local ASR)
+# --------------------------------------------------------------------------- #
+
+
+ASR_MODEL_CACHE: dict[tuple[str, str], object] = {}
+
+
+def load_asr_model(name: str, device: str):
+    """Load and cache one faster-whisper model for the process lifetime.
+
+    Deliberately not at import time: the pipeline must still run with the
+    package absent (--no-transcript, or an environment that never installed
+    it), and per-call loading would re-read the weights every window.
+    """
+    from faster_whisper import WhisperModel
+
+    if (name, device) not in ASR_MODEL_CACHE:
+        # int8 keeps the small model quick on the CPU where the GPU is busy
+        # with the lanes; cuda gets half precision.
+        compute = {"cpu": "int8", "cuda": "float16"}.get(device)
+        options: dict = {"device": device}
+        if compute:
+            options["compute_type"] = compute
+        ASR_MODEL_CACHE[(name, device)] = WhisperModel(name, **options)
+    return ASR_MODEL_CACHE[(name, device)]
+
+
+def transcribe_window(
+    model, audio_path: Path, start: float, language: str = ""
+) -> list[dict]:
+    """One window's speech as utterances with absolute start and end times.
+
+    Whisper's offsets are relative to the clip it is played, so the window's
+    place in the source video is added back. Iterating the result is what
+    drives the transcription.
+    """
+    segments, _info = model.transcribe(
+        str(audio_path), language=language or None, vad_filter=True
+    )
+    speech = []
+    for segment in segments:
+        text = segment.text.strip()
+        if text:
+            speech.append(
+                {
+                    "start": round(start + segment.start, 3),
+                    "end": round(start + segment.end, 3),
+                    "text": text,
+                }
+            )
+    return speech
+
+
+def transcript_lines(speech: Sequence[dict], force_hours: bool = False) -> str:
+    """Utterances as `M:SS - text` lines; empty input reads as no speech."""
+    if not speech:
+        return "no speech detected"
+    return "\n".join(f"{fmt_ts(s['start'], force_hours)} - {s['text']}" for s in speech)
+
+
+def segments_in_window(speech: Sequence[dict], start: float, end: float) -> list[dict]:
+    """The utterances that begin inside [start, end), with absolute times."""
+    return [s for s in speech if start <= s["start"] < end]
+
+
+def asr_available() -> bool:
+    """Whether the optional package the transcript lane needs is installed."""
+    from importlib.util import find_spec
+
+    return find_spec("faster_whisper") is not None
+
+
+# --------------------------------------------------------------------------- #
 # Reporting
 # --------------------------------------------------------------------------- #
 
 
 @dataclass
 class WindowCaption:
-    """One window's vision caption, plus what the audio lane heard in it."""
+    """One window's vision caption, its analysed sound, and its verbatim speech."""
 
     index: int
     start: float
@@ -838,6 +1085,7 @@ class WindowCaption:
     frames: int
     caption: str
     audio: str | None = None
+    speech: list[dict] | None = None
 
     def as_dict(self, force_hours: bool = False) -> dict:
         return {
@@ -849,6 +1097,7 @@ class WindowCaption:
             "frames": self.frames,
             "caption": self.caption,
             "audio": self.audio,
+            "speech": self.speech,
         }
 
 
@@ -860,6 +1109,10 @@ class Config:
     audio: bool = True
     audio_base_url: str = "http://127.0.0.1:8001/v1"
     audio_model: str = "qwen2-audio-7b"
+    transcript: bool = True
+    asr_model: str = "small"
+    asr_device: str = "cpu"
+    asr_language: str = ""
     chunk_seconds: float = 30.0
     fps: float = 1.0
     max_frames: int = 48
@@ -893,6 +1146,12 @@ def render_markdown(
     audio_line = (
         f"`{cfg.audio_model}` via {cfg.audio_base_url}" if analysed else "not analysed"
     )
+    spoken = [segment for c in captions for segment in (c.speech or [])]
+    transcript_header = (
+        f"- **Transcript:** `{cfg.asr_model}` (faster-whisper, in-process)"
+        if spoken
+        else ""
+    )
     lines = [
         f"# Video description: {info.path.name}",
         "",
@@ -903,6 +1162,10 @@ def render_markdown(
         f"({frame_note} per window)",
         f"- **Model:** `{cfg.model}` via {cfg.base_url}",
         f"- **Audio:** {audio_line}",
+    ]
+    if transcript_header:
+        lines.append(transcript_header)
+    lines += [
         f"- **Generated:** {datetime.now().astimezone().isoformat(timespec='seconds')}",
     ]
     if cfg.focus:
@@ -913,6 +1176,18 @@ def render_markdown(
 
     if summary:
         lines += ["## Whole-video report", "", summary, ""]
+
+    if spoken:
+        lines += [
+            "## Transcript (verbatim)",
+            "",
+            "Spoken words transcribed locally with faster-whisper; each line starts "
+            "at the time the utterance was heard. Gaps between lines are video, "
+            "music or silence, not lost speech.",
+            "",
+            transcript_lines(spoken, hours),
+            "",
+        ]
 
     lines += ["---", "", "## Per-window captions", ""]
     for caption in captions:
@@ -926,6 +1201,13 @@ def render_markdown(
         else:
             lines += ["#### Picture", "", caption.caption, ""]
             lines += ["#### Sound", "", caption.audio, ""]
+        if caption.speech:
+            lines += [
+                "#### Speech (transcript)",
+                "",
+                transcript_lines(caption.speech, hours),
+                "",
+            ]
     return "\n".join(lines)
 
 
@@ -966,45 +1248,200 @@ def audio_prompt(start: float, span: float, force_hours: bool) -> str:
     )
 
 
+def keyed_readings(
+    captions: Sequence[WindowCaption],
+    texts: Sequence[str],
+    force_hours: bool,
+    label: str = "Window",
+) -> str:
+    """Readings grouped under one heading per caption, in order."""
+    return "\n\n".join(
+        f"### {label} {c.index + 1} ({fmt_ts(c.start, force_hours)} - "
+        f"{fmt_ts(c.end, force_hours)})\n{text}"
+        for c, text in zip(captions, texts, strict=True)
+    )
+
+
+def transcript_reading(captions: Sequence[WindowCaption], force_hours: bool) -> str:
+    """The windows' verbatim speech as one keyed block."""
+    return keyed_readings(
+        captions,
+        [transcript_lines(c.speech or [], force_hours) for c in captions],
+        force_hours,
+    )
+
+
 def aggregate_prompt(
     captions: Sequence[WindowCaption],
     chunk: float,
     duration: str,
     force_hours: bool,
     step: ReportPass,
+    transcript: bool = False,
 ) -> str:
     """Build the prompt for one pass, carrying the readings every time.
 
     Both readings are repeated in full, because a pass cannot see what an
     earlier one read. Earlier passes are deliberately not quoted back: shown its
-    own text so far, the model expands and restates instead of moving on.
+    own text so far, the model expands and restates instead of moving on. The
+    transcript rides along as the ground truth for what was literally said.
     """
     with_audio = any(c.audio for c in captions)
 
-    def keyed(readings: Sequence[str]) -> str:
-        return "\n\n".join(
-            f"### Window {c.index + 1} ({fmt_ts(c.start, force_hours)} - "
-            f"{fmt_ts(c.end, force_hours)})\n{text}"
-            for c, text in zip(captions, readings, strict=True)
-        )
-
     audio_block = ""
     if with_audio:
-        audio_block = "\n--- AUDIO ---\n" + keyed(
-            [c.audio or "not analysed" for c in captions]
+        audio_block = "\n--- AUDIO ---\n" + keyed_readings(
+            captions, [c.audio or "not analysed" for c in captions], force_hours
+        )
+
+    transcript_block = ""
+    if transcript:
+        transcript_block = "\n--- TRANSCRIPT ---\n" + transcript_reading(
+            captions, force_hours
         )
 
     intro = (AGGREGATE_INTRO_SOUND if with_audio else AGGREGATE_INTRO_VISION).format(
         n=len(captions), duration=duration, chunk=chunk
     )
+    if transcript:
+        intro += f"\n{AGGREGATE_TRANSCRIPT_NOTICE}"
     body = "\n".join(f"## {name}\n{text}\n" for name, text in step.sections)
     readings = (
-        "\n--- CAPTIONS ---\n" + keyed([c.caption for c in captions]) + audio_block
+        "\n--- CAPTIONS ---\n"
+        + keyed_readings(captions, [c.caption for c in captions], force_hours)
+        + audio_block
+        + transcript_block
     )
     return (
         f"{intro}\n{step.preamble}\n\n{AGGREGATE_SECTIONS_INTRO}{body}\n"
         f"{AGGREGATE_RULES}{readings}"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Long-video digest
+# --------------------------------------------------------------------------- #
+
+
+def readings_route(windows: int) -> str:
+    """Whether the report reads the windows directly or through digests."""
+    return "digests" if windows > AGGREGATE_MAX_RAW_WINDOWS else "windows"
+
+
+def digest_batches(count: int) -> list[range]:
+    """Consecutive groups of DIGEST_BATCH_WINDOWS windows; the last is smaller."""
+    return [
+        range(at, min(at + DIGEST_BATCH_WINDOWS, count))
+        for at in range(0, count, DIGEST_BATCH_WINDOWS)
+    ]
+
+
+def digest_max_tokens(window_count: int) -> int:
+    return min(
+        AGGREGATE_MAX_TOKENS,
+        DIGEST_BASE_TOKENS + DIGEST_TOKENS_PER_WINDOW * window_count,
+    )
+
+
+def digest_prompt(
+    captions: Sequence[WindowCaption],
+    chunk: float,
+    duration: str,
+    force_hours: bool,
+) -> str:
+    """Build the prompt condensing one batch of window readings into a digest.
+
+    The transcript is carried with the windows it belongs to, so quoted names
+    and numbers survive the condensing with their wording intact.
+    """
+    with_transcript = any(c.speech for c in captions)
+    span = captions[-1].end - captions[0].start
+
+    readings = "\n--- CAPTIONS ---\n" + keyed_readings(
+        captions, [c.caption for c in captions], force_hours
+    )
+    if any(c.audio for c in captions):
+        readings += "\n--- AUDIO ---\n" + keyed_readings(
+            captions, [c.audio or "not analysed" for c in captions], force_hours
+        )
+    if with_transcript:
+        readings += "\n--- TRANSCRIPT ---\n" + transcript_reading(captions, force_hours)
+
+    intro = DIGEST_INTRO.format(
+        n=len(captions), duration=duration, chunk=chunk, span=span
+    )
+    if with_transcript:
+        intro += f"\n{AGGREGATE_TRANSCRIPT_NOTICE}"
+    body = "\n".join(f"## {name}\n{text}\n" for name, text in DIGEST_SECTIONS)
+    return (
+        f"{intro}\n{DIGEST_PREAMBLE}\n\n{AGGREGATE_SECTIONS_INTRO}{body}\n"
+        f"{DIGEST_RULES}{readings}"
+    )
+
+
+def digest_windows(
+    captions: Sequence[WindowCaption],
+    chunk: float,
+    duration: str,
+    force_hours: bool,
+    describer: Describer,
+    focus: str = "",
+) -> list[WindowCaption]:
+    """Condense window readings into batch digests that keep the modalities apart.
+
+    Each batch becomes a pseudo-window whose caption is the picture digest and
+    whose audio reading carries the sound digest plus the batch's divergence
+    notes; the rest of the report reads these exactly as it read the windows.
+    Digests do not carry speech themselves: the transcript has already done its
+    job inside the digest.
+    """
+    batches = digest_batches(len(captions))
+    digests: list[WindowCaption] = []
+    for number, take in enumerate(batches, start=1):
+        batch = [captions[i] for i in take]
+        start, end = batch[0].start, batch[-1].end
+        prompt = digest_prompt(
+            batch, chunk=chunk, duration=duration, force_hours=force_hours
+        )
+        if focus:
+            prompt += f"\nThe requester cares most about: {focus}\n"
+        answer = describer.chat(
+            AGGREGATE_SYSTEM,
+            prompt,
+            max_tokens=digest_max_tokens(len(batch)),
+            loop_resistant=True,
+            widen=False,
+        )
+        print(
+            f"  digested batch {number}/{len(batches)}  ({fmt_ts(start, force_hours)})",
+            flush=True,
+        )
+        blocks = split_pass_output(answer)
+        picture = blocks.get("Picture", "")
+        sound = blocks.get("Sound", "")
+        divergence = blocks.get("Divergence", "")
+        # A digest that ignored the format is still worth carrying whole: it is
+        # a condensation, just one whose headings cannot be split apart.
+        if not picture and not sound:
+            picture = answer
+        caption_text = f"## Picture\n\n{picture}" if picture else ""
+        sound_parts = []
+        if sound:
+            sound_parts.append(f"## Sound\n\n{sound}")
+        if divergence:
+            sound_parts.append(f"## Divergence\n\n{divergence}")
+        digests.append(
+            WindowCaption(
+                index=number - 1,
+                start=start,
+                end=end,
+                frames=sum(w.frames for w in batch),
+                caption=caption_text or answer,
+                audio="\n\n".join(sound_parts) or None,
+                speech=None,
+            )
+        )
+    return digests
 
 
 def describe_video(
@@ -1037,6 +1474,14 @@ def describe_video(
         print(f"audio      {cfg.audio_base_url}  model={cfg.audio_model}")
     elif info.has_audio:
         print("audio      skipped")
+    transcript_available = cfg.transcript and info.has_audio and asr_available()
+    if cfg.transcript and info.has_audio and not transcript_available:
+        print(
+            "transcript skipped: the faster-whisper package is missing; "
+            "run ./install.sh to transcribe speech"
+        )
+    elif transcript_available:
+        print(f"transcript {cfg.asr_model} on {cfg.asr_device} (in-process)")
 
     out_dir = cfg.out_dir.expanduser().resolve() / path.stem
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1057,7 +1502,7 @@ def describe_video(
                 path, start, span, sampled_fps, cfg.width, frames_root / f"w{index:04d}"
             )
             audio_path: Path | None = None
-            if analyse_audio:
+            if analyse_audio or transcript_available:
                 audio_path = extract_audio(
                     path, start, span, frames_root / "audio" / f"w{index:04d}.wav"
                 )
@@ -1127,6 +1572,43 @@ def describe_video(
                     heard[index] = text
             audio_seconds = time.time() - audio_started
 
+        # 4. Transcribe the spoken words in the same windows. The transcript is
+        #    a third, verbatim reading: the aggregate pass uses it for exact
+        #    wording instead of trusting the audio model's paraphrase. One
+        #    window failing to transcribe must not fail the video.
+        speech: list[list[dict] | None] = [None] * windows
+        transcript_seconds = 0.0
+        if transcript_available:
+            transcript_started = time.time()
+            print(f"transcribing with {cfg.asr_model} on {cfg.asr_device}...")
+
+            def hear_words(index: int) -> tuple[int, list[dict]]:
+                try:
+                    model = load_asr_model(cfg.asr_model, cfg.asr_device)
+                    segments = transcribe_window(
+                        model,
+                        audio_per_window[index],
+                        spans[index][0],
+                        cfg.asr_language,
+                    )
+                except Exception as error:  # noqa: BLE001 - reported, then skipped
+                    print(
+                        f"warning: transcription of window {index + 1} failed: {error}",
+                        file=sys.stderr,
+                    )
+                    segments = []
+                print(
+                    f"  transcribed {index + 1}/{windows}  "
+                    f"({fmt_ts(spans[index][0], hours)})",
+                    flush=True,
+                )
+                return index, segments
+
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                for index, segments in pool.map(hear_words, range(windows)):
+                    speech[index] = segments
+            transcript_seconds = time.time() - transcript_started
+
         captions = [
             WindowCaption(
                 index=i,
@@ -1135,43 +1617,90 @@ def describe_video(
                 frames=len(frames_per_window[i]),
                 caption=captured[i],
                 audio=heard.get(i),
+                speech=speech[i],
             )
             for i in range(windows)
         ]
 
-        # 4. Fuse the two readings. A single window is already complete.
+        # 5. Whole-video report: condense first when the video is long, then
+        #    write it in passes and stitch the sections in reading order — a
+        #    section a pass failed to write is recovered by a completion pass
+        #    instead of missing silently. A single window is already complete.
         summary = ""
         if cfg.summarise and len(captions) > 1:
-            with_audio = any(c.audio for c in captions)
-            written: list[str] = []
-            print(
-                f"aggregating into a report in {len(report_passes(with_audio, len(captions)))} passes..."
-            )
-            for step in report_passes(with_audio, len(captions)):
-                prompt = aggregate_prompt(
+            groups = captions
+            group_chunk = chunk
+            if readings_route(len(captions)) == "digests":
+                print(
+                    f"condensing {len(captions)} windows into batches of "
+                    f"{DIGEST_BATCH_WINDOWS} before the report..."
+                )
+                groups = digest_windows(
                     captions,
                     chunk=chunk,
                     duration=fmt_ts(info.duration, hours),
                     force_hours=hours,
+                    describer=describer,
+                    focus=cfg.focus,
+                )
+                group_chunk = DIGEST_BATCH_WINDOWS * chunk
+
+            with_audio = any(g.audio for g in groups)
+            steps = list(report_passes(with_audio, len(groups)))
+            print(f"aggregating into a report in {len(steps)} passes...")
+            outputs: dict[str, str] = {}
+            for step in steps:
+                prompt = aggregate_prompt(
+                    groups,
+                    chunk=group_chunk,
+                    duration=fmt_ts(info.duration, hours),
+                    force_hours=hours,
                     step=step,
+                    transcript=any(g.speech for g in groups),
                 )
                 if cfg.focus:
                     prompt += f"\nThe requester cares most about: {cfg.focus}\n"
                 print(f"  pass {step.name} ({step.max_tokens} tokens)")
-                written.append(
-                    describer.chat(
+                outputs[step.name] = describer.chat(
+                    AGGREGATE_SYSTEM,
+                    prompt,
+                    max_tokens=step.max_tokens,
+                    loop_resistant=True,
+                    widen=False,
+                )
+            summary, missing = assemble_report(steps, outputs)
+            if missing:
+                print(f"  recovering dropped sections: {', '.join(missing)}")
+                fix = repair_pass(tuple(missing), with_audio)
+                if fix is not None:
+                    prompt = aggregate_prompt(
+                        groups,
+                        chunk=group_chunk,
+                        duration=fmt_ts(info.duration, hours),
+                        force_hours=hours,
+                        step=fix,
+                        transcript=any(g.speech for g in groups),
+                    )
+                    if cfg.focus:
+                        prompt += f"\nThe requester cares most about: {cfg.focus}\n"
+                    print(f"  pass {fix.name} ({fix.max_tokens} tokens)")
+                    outputs[fix.name] = describer.chat(
                         AGGREGATE_SYSTEM,
                         prompt,
-                        max_tokens=step.max_tokens,
+                        max_tokens=fix.max_tokens,
                         loop_resistant=True,
                         widen=False,
                     )
+                    summary, missing = assemble_report([*steps, fix], outputs)
+            if missing:
+                print(
+                    "warning: the report still lacks: " + ", ".join(missing),
+                    file=sys.stderr,
                 )
-            summary = "\n\n".join(written)
 
         elapsed = time.time() - started
 
-        # 4. Persist.
+        # 6. Persist.
         (out_dir / "chunk_captions.json").write_text(
             json.dumps(
                 {
@@ -1185,6 +1714,21 @@ def describe_video(
         (out_dir / "description.md").write_text(
             render_markdown(info, captions, summary, cfg, chunk, sampled_fps)
         )
+        if transcript_available:
+            utterances = [s for per in speech if per for s in per]
+            (out_dir / "transcript.json").write_text(
+                json.dumps(
+                    {
+                        "video": str(path),
+                        "model": cfg.asr_model,
+                        "device": cfg.asr_device,
+                        "language": cfg.asr_language or None,
+                        "segments": utterances,
+                    },
+                    indent=2,
+                )
+                + "\n"
+            )
         (out_dir / "meta.json").write_text(
             json.dumps(
                 {
@@ -1205,6 +1749,10 @@ def describe_video(
                         "focus": cfg.focus or None,
                         "summarise": cfg.summarise,
                         "audio": cfg.audio,
+                        "transcript": cfg.transcript,
+                        "asr_model": cfg.asr_model,
+                        "asr_device": cfg.asr_device,
+                        "asr_language": cfg.asr_language or None,
                     },
                     "windows": windows,
                     "frames_per_window": [len(frames) for frames in frames_per_window],
@@ -1220,6 +1768,8 @@ def describe_video(
                     "audio_seconds": round(audio_seconds, 1),
                     "caption_seconds": round(caption_seconds, 1),
                     "total_seconds": round(elapsed, 1),
+                    "transcript_model": cfg.asr_model if transcript_available else None,
+                    "transcript_seconds": round(transcript_seconds, 1),
                 },
                 indent=2,
             )
@@ -1227,7 +1777,10 @@ def describe_video(
         )
 
         print(f"\ndone in {elapsed:.0f}s")
-        for name in ("description.md", "chunk_captions.json", "meta.json"):
+        written = ["description.md", "chunk_captions.json", "meta.json"]
+        if transcript_available:
+            written.insert(2, "transcript.json")
+        for name in written:
             print(f"  {out_dir / name}")
         return out_dir
     finally:
@@ -1304,6 +1857,7 @@ def collect_records(out_dir: Path) -> list[dict]:
                 "has_audio": probe.get("has_audio"),
                 "audio_analyzed": audio,
                 "audio_model": meta.get("audio_model"),
+                "transcript_model": meta.get("transcript_model"),
                 "model": meta.get("model"),
                 "base_url": meta.get("base_url"),
                 "config": meta.get("config"),
@@ -1355,6 +1909,8 @@ def _describe_config(config: dict | None) -> str:
         parts.append("no aggregate pass")
     if config.get("audio") is False:
         parts.append("no audio analysis")
+    if config.get("transcript") is False:
+        parts.append("no transcript")
     return ", ".join(parts)
 
 
@@ -1381,6 +1937,19 @@ def render_index_markdown(out_dir: Path, records: Sequence[dict]) -> str:
         else "not analysed"
     )
 
+    transcribed = sum(1 for r in records if r.get("transcript_model"))
+    asr_models = ", ".join(
+        f"`{m}`"
+        for m in sorted(
+            {r["transcript_model"] for r in records if r["transcript_model"]}
+        )
+    )
+    transcript_line = (
+        f"{asr_models or 'analysed'} in {transcribed} of {len(records)} videos"
+        if transcribed
+        else "not analysed"
+    )
+
     lines = [
         f"# Results: {out_dir.name}",
         "",
@@ -1389,6 +1958,7 @@ def render_index_markdown(out_dir: Path, records: Sequence[dict]) -> str:
         f"- **Model:** {model_line}",
         f"- **Requested settings:** {_describe_config(shared_config(records))}",
         f"- **Audio:** {audio_line}",
+        f"- **Transcript:** {transcript_line}",
         "",
         "| Video | Duration | Windows | Frames | Time | Notes |",
         "|---|---|---|---|---|---|",
@@ -1499,6 +2069,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  ./describe_video.py clip.mp4\n"
             "  ./describe_video.py recordings/ --fps 2\n"
             "  ./describe_video.py clip.mp4 --no-audio\n"
+            "  ./describe_video.py clip.mp4 --no-transcript\n"
             "  ./describe_video.py clip.mp4 --focus 'safety equipment'\n"
             "  ./describe_video.py --out-dir results/init-9 recordings/*.mp4\n"
             "  ./describe_video.py --reindex results/init-9\n"
@@ -1554,6 +2125,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--audio-model",
         default=os.environ.get("AUDIO_MODEL", "qwen2-audio-7b"),
         help="served audio model name (default: $(default)s)",
+    )
+    parser.add_argument(
+        "--no-transcript",
+        dest="transcript",
+        action="store_false",
+        help="skip the local speech transcript even when the source has sound",
+    )
+    parser.add_argument(
+        "--asr-model",
+        default=os.environ.get("ASR_MODEL", "small"),
+        help="faster-whisper model size or local path (default: $(default)s)",
+    )
+    parser.add_argument(
+        "--asr-device",
+        default=os.environ.get("ASR_DEVICE", "cpu"),
+        help="ASR device: cpu, cuda, or auto (default: $(default)s)",
+    )
+    parser.add_argument(
+        "--asr-language",
+        default=os.environ.get("ASR_LANGUAGE", ""),
+        help="ASR language code, e.g. 'en'; empty auto-detects (default: auto)",
     )
     parser.add_argument(
         "--chunk-seconds",
@@ -1671,6 +2263,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         audio=args.audio,
         audio_base_url=args.audio_base_url,
         audio_model=args.audio_model,
+        transcript=args.transcript,
+        asr_model=args.asr_model,
+        asr_device=args.asr_device,
+        asr_language=args.asr_language.strip(),
         chunk_seconds=args.chunk_seconds,
         fps=args.fps,
         max_frames=args.max_frames,

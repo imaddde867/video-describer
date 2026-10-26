@@ -61,6 +61,13 @@ fetch_model() { # <repo> <dir> <description>
 fetch_model "$MODEL_REPO" "$MODEL_DIR" "vision weights (~10 GB)"
 fetch_model "$AUDIO_MODEL_REPO" "$AUDIO_MODEL_DIR" "audio weights (~17 GB)"
 
+echo "==> transcript weights (faster-whisper 'small', a few hundred MB)"
+# Failing here is only a warning: the transcript lane downloads the same
+# weights on first use, straight into the standard cache.
+.venv/bin/python -c \
+  "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')" \
+  || echo "warning: transcript weights will download on the first transcribe instead"
+
 cat <<EOF
 
 Setup complete.

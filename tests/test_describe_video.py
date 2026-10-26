@@ -168,7 +168,7 @@ def _info(**overrides) -> dv.VideoInfo:
     return dv.VideoInfo(**fields)
 
 
-def _caption(index=0, start=0.0, end=30.0, audio=None) -> dv.WindowCaption:
+def _caption(index=0, start=0.0, end=30.0, audio=None, speech=None) -> dv.WindowCaption:
     return dv.WindowCaption(
         index=index,
         start=start,
@@ -176,6 +176,7 @@ def _caption(index=0, start=0.0, end=30.0, audio=None) -> dv.WindowCaption:
         frames=30,
         caption="## Segment summary\nA test.",
         audio=audio,
+        speech=speech,
     )
 
 
@@ -345,7 +346,193 @@ def test_the_prompt_without_audio_omits_the_sound_sections():
     assert "Spoken content" not in prompt
 
 
-def test_check_report_expects_the_sound_sections_when_audio_ran():
+# --------------------------------------------------------------------------- #
+# Transcript (the third reading)
+# --------------------------------------------------------------------------- #
+
+
+def _speech(seconds: float, text: str) -> dict:
+    return {"start": seconds, "end": seconds + 2.0, "text": text}
+
+
+def test_the_aggregate_pass_receives_the_transcript_verbatim():
+    captions = [
+        _caption(
+            audio="## Audio summary\nSomeone speaks.",
+            speech=[_speech(3.2, "hello there")],
+        )
+    ]
+    step = dv.report_passes(with_audio=True, windows=2)[0]
+    prompt = dv.aggregate_prompt(
+        captions,
+        chunk=30.0,
+        duration="0:30.0",
+        force_hours=False,
+        step=step,
+        transcript=True,
+    )
+
+    assert "--- TRANSCRIPT ---" in prompt
+    assert "0:03.2 - hello there" in prompt
+    assert "exact" in prompt  # the wording rule rides along with the block
+
+
+def test_the_aggregate_pass_omits_the_transcript_without_speech():
+    captions = [_caption(audio="## Audio summary\nA drill runs.")]
+    step = dv.report_passes(with_audio=True, windows=2)[0]
+    prompt = dv.aggregate_prompt(
+        captions,
+        chunk=30.0,
+        duration="0:30.0",
+        force_hours=False,
+        step=step,
+    )
+
+    assert "TRANSCRIPT" not in prompt
+
+
+def test_transcript_lines_format_utterances_with_absolute_times():
+    speech = [_speech(0.0, "first"), _speech(3601.0, "second")]
+
+    assert dv.transcript_lines(speech[:1]) == "0:00.0 - first"
+    assert "1:00:01.0 - second" in dv.transcript_lines(speech, force_hours=True)
+    assert dv.transcript_lines([]) == "no speech detected"
+
+
+def test_segments_in_window_keeps_what_starts_there():
+    speech = [_speech(29.0, "straddles the window"), _speech(35.0, "inside")]
+
+    picked = dv.segments_in_window(speech, start=30.0, end=60.0)
+    assert [s["text"] for s in picked] == ["inside"]
+
+
+def test_render_markdown_carries_the_transcript_verbatim():
+    report = dv.render_markdown(
+        _info(),
+        [_caption(speech=[_speech(4.0, "hello there")])],
+        summary="Fused.",
+        cfg=dv.Config(),
+        chunk=30.0,
+        sampled_fps=1.0,
+    )
+
+    assert "## Transcript (verbatim)" in report
+    assert "0:04.0 - hello there" in report
+    assert "#### Speech (transcript)" in report
+    assert "`small`" in report  # the header names the ASR model
+
+
+def test_render_markdown_drops_the_transcript_when_there_is_none():
+    report = dv.render_markdown(
+        _info(),
+        [_caption()],
+        summary="",
+        cfg=dv.Config(),
+        chunk=30.0,
+        sampled_fps=1.0,
+    )
+
+    assert "Transcript" not in report
+
+
+def test_a_report_can_be_repaired_after_it_is_written():
+    steps = dv.report_passes(with_audio=True, windows=2)
+    outputs = {
+        "opening": "## Overview\nA short film.\n\n## Timeline\n- 0:00 - opens.\n\n"
+        "## Spoken content\nSomebody talks.\n\n## Voice and sound\nQuiet room.",
+        "closing": "## Gaps and uncertainties\nnone.",
+    }
+
+    report, missing = dv.assemble_report(steps, outputs)
+
+    assert "## Overview" in report
+    assert report.index("## Overview") < report.index("## Timeline")
+    assert report.index("## Spoken content") < report.index("## Voice and sound")
+    # The fusion part was never written, and the closing pass skipped two.
+    assert missing == [
+        "Sound and picture together",
+        "Recurring elements",
+        "Notable details",
+    ]
+    assert "## Sound and picture together" not in report
+
+
+def test_an_assembled_report_keeps_the_canonical_order_despite_a_wayward_pass():
+    steps = dv.report_passes(with_audio=False, windows=2)
+    # The closing pass chose its own order; assembly must not carry it over.
+    outputs = {
+        "opening": "## Overview\nA.\n\n## Timeline\n- 0:00 - b.",
+        "closing": "## Gaps and uncertainties\nnone.\n\n## Notable details\nd.\n\n"
+        "## Recurring elements\nc.",
+    }
+
+    report, _missing = dv.assemble_report(steps, outputs)
+
+    assert report.index("## Recurring elements") < report.index("## Notable details")
+    assert report.index("## Notable details") < report.index(
+        "## Gaps and uncertainties"
+    )
+
+
+def test_a_section_written_twice_keeps_its_first_body():
+    blocks = dv.split_pass_output(
+        "## Overview\nfirst.\n\n## Timeline\nt.\n\n## Overview\nsecond."
+    )
+
+    assert blocks["Overview"] == "first."
+
+
+def test_a_wayward_heading_cannot_supply_a_section_it_does_not_own():
+    # A closing pass that echoes an opening heading wrote nothing usable for
+    # either: the overview is only ever read from the pass asked for it.
+    report, missing = dv.assemble_report(
+        dv.report_passes(with_audio=False, windows=2),
+        {"closing": "## Overview\nrepeated.\n\n## Recurring elements\nc."},
+    )
+
+    assert "repeated." not in report
+    assert missing == [
+        "Overview",
+        "Timeline",
+        "Notable details",
+        "Gaps and uncertainties",
+    ]
+
+
+def test_the_repair_pass_targets_only_the_missing_sections():
+    step = dv.repair_pass(
+        ("Notable details", "Gaps and uncertainties"), with_audio=True
+    )
+
+    assert [name for name, _ in step.sections] == [
+        "Notable details",
+        "Gaps and uncertainties",
+    ]
+    assert step.max_tokens <= dv.AGGREGATE_MAX_TOKENS
+
+
+def test_a_repair_pass_is_not_built_for_a_whole_report():
+    assert dv.repair_pass((), with_audio=True) is None
+
+
+def test_a_section_the_repair_pass_recovered_counts_as_recovered():
+    # Closing failed to write one section, the completion pass wrote it, and
+    # its position is where the report's reading order puts it, not last.
+    steps = dv.report_passes(with_audio=False, windows=2)
+    fix = dv.repair_pass(("Notable details",), with_audio=False)
+    outputs = {
+        "opening": "## Overview\nA.\n\n## Timeline\nb.",
+        "closing": "## Recurring elements\nc.\n\n## Gaps and uncertainties\ne.",
+        "repair": "## Notable details\nd.",
+    }
+
+    report, missing = dv.assemble_report([*steps, fix], outputs)
+
+    assert missing == []
+    assert report.index("## Recurring elements") < report.index("## Notable details")
+    assert report.index("## Notable details") < report.index(
+        "## Gaps and uncertainties"
+    )
     text = "# Video description: clip.mp4\n\n## Whole-video report\n\n" + "".join(
         f"## {name}\nA.\n\n" for name in dv.report_sections(False)
     )
@@ -438,13 +625,20 @@ def test_cli_no_summary_flag_parses():
     assert args.summarise is False
 
 
+def test_cli_no_transcript_flag_parses():
+    args = dv.build_parser().parse_args(["clip.mp4", "--no-transcript"])
+    assert args.transcript is False
+
+
 def test_cli_audio_is_on_unless_disabled():
     parser = dv.build_parser()
     assert parser.parse_args(["clip.mp4"]).audio is True
     assert parser.parse_args(["clip.mp4", "--no-audio"]).audio is False
 
 
-def test_cli_defaults_are_documented_values():
+def test_cli_defaults_are_documented_values(monkeypatch):
+    for name in ("ASR_MODEL", "ASR_DEVICE", "ASR_LANGUAGE"):
+        monkeypatch.delenv(name, raising=False)
     args = dv.build_parser().parse_args(["clip.mp4"])
     assert (args.fps, args.chunk_seconds, args.max_frames, args.width) == (
         1.0,
@@ -452,6 +646,10 @@ def test_cli_defaults_are_documented_values():
         48,
         896,
     )
+    # Speech transcription runs unless it is turned off, on the CPU, so the
+    # lanes keep the whole GPU to themselves.
+    assert args.transcript is True
+    assert (args.asr_model, args.asr_device, args.asr_language) == ("small", "cpu", "")
 
 
 def test_cli_requires_videos_or_a_reindex(capsys):
@@ -711,6 +909,60 @@ def test_check_report_ignores_a_report_without_an_aggregate_pass():
         dv.check_report("# Video description: clip.mp4\n\n## Segment summary\nA.")
         is None
     )
+
+
+# --------------------------------------------------------------------------- #
+# Long-video digest
+# --------------------------------------------------------------------------- #
+
+
+def test_short_videos_are_read_directly_and_long_ones_condensed():
+    assert dv.readings_route(24) == "windows"
+    assert dv.readings_route(25) == "digests"
+
+
+def test_digest_batches_cover_every_window_exactly_once():
+    batches = dv.digest_batches(37)
+
+    flat = [i for batch in batches for i in batch]
+    assert sorted(flat) == list(range(37))
+    assert all(len(batch) <= dv.DIGEST_BATCH_WINDOWS for batch in batches)
+    assert batches[-1][-1] == 36  # the last batch is smaller, not a stub of one
+    assert len(batches) == 4
+
+
+def test_digest_prompt_names_its_span_and_keeps_both_modalities():
+    captions = [
+        _caption(index=0, start=3600.0, end=3630.0, audio="## Audio summary\nTalk."),
+        _caption(index=1, start=3630.0, end=3660.0, audio="## Audio summary\nMusic."),
+    ]
+    prompt = dv.digest_prompt(
+        captions, chunk=30.0, duration="2:00:00.0", force_hours=True
+    )
+
+    assert "60 seconds" in prompt  # the batch's own span
+    assert "1:00:00.0" in prompt and "1:01:00.0" in prompt  # absolute window times
+    assert "## Picture" in prompt
+    assert "## Sound" in prompt
+    assert "## Divergence" in prompt
+
+
+def test_the_digest_prompt_carries_the_transcript_with_its_windows():
+    captions = [
+        _caption(
+            index=0,
+            start=0.0,
+            end=30.0,
+            audio="## Audio summary\nTalk.",
+            speech=[_speech(5.0, "a price of forty dollars")],
+        )
+    ]
+    prompt = dv.digest_prompt(
+        captions, chunk=30.0, duration="0:30.0", force_hours=False
+    )
+
+    assert "--- TRANSCRIPT ---" in prompt
+    assert "0:05.0 - a price of forty dollars" in prompt
 
 
 def test_write_index_records_every_video(tmp_path):
