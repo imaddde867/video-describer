@@ -8,6 +8,12 @@ aggregate the captions into one report for the whole video.
 Usage:
     ./describe_video.py clip.mp4
     ./describe_video.py recordings/*.mp4 --fps 2 --focus "safety equipment"
+    ./describe_video.py --out-dir results/init-9 recordings/*.mp4
+    ./describe_video.py --reindex results/init-9
+
+Every run indexes whatever is in its output directory, writing RESULTS.md and
+run.json from the per-video meta.json files, so a results directory records
+what was done whether it was filled by one batch or by many single runs.
 """
 
 from __future__ import annotations
@@ -18,6 +24,7 @@ import glob
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -29,7 +36,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 VIDEO_SUFFIXES = {
     ".mp4",
@@ -81,13 +88,21 @@ not repeat an unchanged state from frame to frame. Whole-frame static segments
 get a single line saying they are static. Aim for the shortest list that still
 covers every distinct change.
 
+On-screen text is NOT an event. Captions, subtitles, and graphics that type
+themselves out change on almost every frame; describing each change floods this
+list and hides the real action. Mention such text at most once, saying it
+updates continuously, and put the actual wording under "On-screen text".
+
 ## Visible entities
 People (count, posture, clothing colours), animals, objects, vehicles,
 machinery, text, signage, products, food. Be specific and literal.
 
 ## On-screen text
-Transcribe any text, labels, captions, or UI elements verbatim. If there is
-none, write "none".
+Transcribe the text, labels, captions and UI elements you can read, verbatim.
+Keep it to distinct messages: merge repeated appearances and the fragments of a
+sentence that types itself out into one entry, and do not list near-identical
+values (successive filenames, counters, timestamps, progress percentages) one
+per frame. If there is none, write "none".
 
 ## Camera and framing
 Static, pan, tilt, zoom, handheld, tracking, cut between shots. Note any
@@ -121,13 +136,20 @@ form `<timestamp> - <what happens>`, using absolute timestamps (`M:SS` or
 each. Cover the whole runtime. If the video is largely static, a short timeline
 is the correct answer — do not pad it to look thorough.
 
+List what happens, not what is written. Do not turn caption or subtitle wording
+into timeline entries; put that wording under Notable details instead.
+
 ## Recurring elements
 People, objects, settings, or actions that appear more than once, and how they
 change over the video.
 
 ## Notable details
 Concrete, checkable specifics: on-screen text, counts, colours, quantities,
-transitions, anything a viewer would want quoted.
+transitions, anything a viewer would want quoted. Quote the wording that
+matters rather than every variant of it, and group near-identical entries.
+
+Write every section, even when it is short; use "none" or "not determinable"
+rather than dropping a heading.
 
 ## Gaps and uncertainties
 What the captions leave unclear, disagree about, or could not see.
@@ -137,6 +159,19 @@ Do not invent anything that is not supported by the captions below.
 --- CAPTIONS ---
 {captions}
 """
+
+# Captions of text-dense footage run well past 1400 tokens and were being cut
+# mid-sentence; the aggregate pass needs room to reach its last sections. Budget
+# that goes unused costs nothing, so both limits are deliberately generous.
+CAPTION_MAX_TOKENS = 4000
+AGGREGATE_BASE_TOKENS = 2000
+AGGREGATE_TOKENS_PER_WINDOW = 800
+AGGREGATE_MAX_TOKENS = 12000
+
+# A repeating cycle is at most a quarter of the n-grams it produces; ordinary
+# prose runs far above that.
+DEGENERATE_MIN_WORDS = 40
+DEGENERATE_MAX_UNIQUE_RATIO = 0.25
 
 FOCUS_SUFFIX = (
     "\nThe person who requested this analysis cares most about: {focus}\n"
@@ -327,6 +362,30 @@ def extract_frames(
 # --------------------------------------------------------------------------- #
 
 
+def looks_degenerate(text: str) -> bool:
+    """True when a reply collapsed into a repetition loop.
+
+    The model occasionally locks onto a short cycle and repeats it to the token
+    limit, which is worth catching because the result reads like a valid answer.
+    Comparing distinct word n-grams against the number of n-grams catches that
+    cheaply, including a short phrase repeated many times.
+    """
+    words = text.split()
+    if len(words) < DEGENERATE_MIN_WORDS:
+        return False
+    for size in (4, 8):
+        grams = [tuple(words[i : i + size]) for i in range(len(words) - size + 1)]
+        if grams and len(set(grams)) / len(grams) < DEGENERATE_MAX_UNIQUE_RATIO:
+            return True
+    return False
+
+
+def aggregate_token_budget(windows: int) -> int:
+    """Output room for a report, which grows with the number of windows."""
+    scaled = AGGREGATE_BASE_TOKENS + AGGREGATE_TOKENS_PER_WINDOW * windows
+    return min(AGGREGATE_MAX_TOKENS, scaled)
+
+
 class Describer:
     """Thin wrapper over an OpenAI-compatible chat endpoint."""
 
@@ -340,7 +399,7 @@ class Describer:
         system: str,
         user: str,
         images: Iterable[Path] | None = None,
-        max_tokens: int = 1400,
+        max_tokens: int = CAPTION_MAX_TOKENS,
     ) -> str:
         content: list[dict] = []
         for image in images or ():
@@ -353,6 +412,67 @@ class Describer:
             )
         content.append({"type": "text", "text": user})
 
+        text, truncated = self._complete(system, content, max_tokens)
+
+        # Greedy decoding can walk into a loop and stay there. Retrying with a
+        # mild repetition penalty and a little jitter breaks the tie; more room
+        # would only produce a longer loop, so this comes before widening.
+        if looks_degenerate(text):
+            print(
+                "warning: the model collapsed into a repetition loop; retrying once",
+                file=sys.stderr,
+            )
+            text, truncated = self._complete(
+                system, content, max_tokens, breaking_loops=True
+            )
+            if looks_degenerate(text):
+                print(
+                    "warning: the retry repeated itself too; its output may be "
+                    "unusable",
+                    file=sys.stderr,
+                )
+
+        # A caption that stops on the limit is missing its closing sections.
+        # Giving that one call more room costs nothing when it goes unused.
+        if truncated:
+            print(
+                f"warning: the answer stopped at {max_tokens} tokens; retrying "
+                "with a larger budget",
+                file=sys.stderr,
+            )
+            widened, still_truncated = self._complete(system, content, max_tokens * 2)
+            if still_truncated:
+                print(
+                    f"warning: still truncated at {max_tokens * 2} tokens; "
+                    "sections may be incomplete",
+                    file=sys.stderr,
+                )
+            if looks_degenerate(widened):
+                print(
+                    "warning: the longer answer repeated itself; keeping the "
+                    "shorter one",
+                    file=sys.stderr,
+                )
+            else:
+                text = widened
+
+        return text
+
+    def _complete(
+        self,
+        system: str,
+        content: list[dict],
+        max_tokens: int,
+        breaking_loops: bool = False,
+    ) -> tuple[str, bool]:
+        """One successful call, retrying transport errors with backoff.
+
+        Returns the reply and whether it stopped on the token limit.
+        """
+        sampling: dict = {"temperature": 0.2 if breaking_loops else 0.0}
+        if breaking_loops:
+            sampling["extra_body"] = {"repetition_penalty": 1.05}
+
         last_error: Exception | None = None
         for attempt in range(self._attempts):
             try:
@@ -363,9 +483,13 @@ class Describer:
                         {"role": "user", "content": content},
                     ],
                     max_tokens=max_tokens,
-                    temperature=0.0,
+                    **sampling,
                 )
-                return (response.choices[0].message.content or "").strip()
+                choice = response.choices[0]
+                return (
+                    (choice.message.content or "").strip(),
+                    choice.finish_reason == "length",
+                )
             except Exception as error:  # noqa: BLE001 - reported after retries
                 last_error = error
                 if attempt + 1 < self._attempts:
@@ -426,6 +550,14 @@ def render_markdown(
 ) -> str:
     """Render the human-readable report."""
     hours = info.duration >= 3600
+    # Frames per window vary by one either side of the nominal count, so report
+    # what was actually sent to the model rather than a computed approximation.
+    counts = [c.frames for c in captions] or [0]
+    frame_note = (
+        f"{counts[0]} frames"
+        if len(set(counts)) == 1
+        else f"{min(counts)}-{max(counts)} frames"
+    )
     lines = [
         f"# Video description: {info.path.name}",
         "",
@@ -433,7 +565,7 @@ def render_markdown(
         f"- **Duration:** {fmt_ts(info.duration, hours)}",
         f"- **Resolution:** {info.width}x{info.height} @ {info.fps} fps",
         f"- **Window:** {len(captions)} x {chunk:.1f}s, {sampled_fps:g} fps sampled "
-        f"({int(sampled_fps * chunk)} frames per window)",
+        f"({frame_note} per window)",
         f"- **Model:** `{cfg.model}` via {cfg.base_url}",
         f"- **Generated:** {datetime.now().astimezone().isoformat(timespec='seconds')}",
     ]
@@ -583,7 +715,11 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
             if cfg.focus:
                 prompt += f"\nThe requester cares most about: {cfg.focus}\n"
             print("aggregating into a single report...")
-            summary = describer.chat(AGGREGATE_SYSTEM, prompt, max_tokens=2400)
+            summary = describer.chat(
+                AGGREGATE_SYSTEM,
+                prompt,
+                max_tokens=aggregate_token_budget(len(captions)),
+            )
 
         elapsed = time.time() - started
 
@@ -612,7 +748,17 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
                         "fps": info.fps,
                         "has_audio": info.has_audio,
                     },
+                    "config": {
+                        "chunk_seconds": cfg.chunk_seconds,
+                        "fps": cfg.fps,
+                        "max_frames": cfg.max_frames,
+                        "width": cfg.width,
+                        "workers": cfg.workers,
+                        "focus": cfg.focus or None,
+                        "summarise": cfg.summarise,
+                    },
                     "windows": windows,
+                    "frames_per_window": [len(frames) for frames in frames_per_window],
                     "chunk_seconds": round(chunk, 3),
                     "sampled_fps": round(sampled_fps, 3),
                     "width": cfg.width,
@@ -637,6 +783,215 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
             print(f"frames kept in {frames_root}")
         else:
             shutil.rmtree(frames_root, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------- #
+# Experiment index
+# --------------------------------------------------------------------------- #
+
+# Sections the aggregate pass is asked to produce. A missing heading means the
+# model dropped part of its own reporting contract, which is worth surfacing
+# rather than passing off as silence.
+REQUIRED_REPORT_SECTIONS = (
+    "Overview",
+    "Timeline",
+    "Recurring elements",
+    "Notable details",
+    "Gaps and uncertainties",
+)
+
+
+def check_report(text: str) -> list[str] | None:
+    """Aggregate sections that were asked for but are absent from a report.
+
+    Returns None when there is nothing to check: a single-window video, or a run
+    with --no-summary, produces no whole-video report.
+    """
+    if "## Whole-video report" not in text:
+        return None
+    present = set(re.findall(r"^##\s+(.+?)\s*$", text, flags=re.MULTILINE))
+    return [name for name in REQUIRED_REPORT_SECTIONS if name not in present]
+
+
+def fmt_span(seconds: float) -> str:
+    """Compact duration for an index table: '35 s', '6.4 min', '1.2 h'."""
+    if seconds < 60:
+        return f"{seconds:.0f} s"
+    if seconds < 3600:
+        return f"{seconds / 60:.1f} min"
+    return f"{seconds / 3600:.1f} h"
+
+
+def collect_records(out_dir: Path) -> list[dict]:
+    """Read every per-video record under a results directory, sorted by name."""
+    records: list[dict] = []
+    for meta_path in sorted(out_dir.glob("*/meta.json")):
+        try:
+            meta = json.loads(meta_path.read_text())
+        except (OSError, ValueError) as error:
+            print(f"warning: skipping {meta_path}: {error}", file=sys.stderr)
+            continue
+
+        folder = meta_path.parent
+        name = folder.name
+        probe = meta.get("probe") or {}
+        frames = meta.get("frames_per_window") or []
+        # Runs recorded before frames_per_window existed only allow a nominal
+        # frame count; flag it so the index never passes an estimate as fact.
+        estimated = False
+        if not frames and meta.get("sampled_fps") and meta.get("chunk_seconds"):
+            per_window = meta["sampled_fps"] * meta["chunk_seconds"]
+            frames = [round(per_window)] * (meta.get("windows") or 1)
+            estimated = True
+        width, height = probe.get("width"), probe.get("height")
+        report = folder / "description.md"
+        report_text = report.read_text() if report.exists() else ""
+        captions = folder / "chunk_captions.json"
+
+        records.append(
+            {
+                "name": name,
+                "source": meta.get("video"),
+                "duration": probe.get("duration"),
+                "resolution": f"{width}x{height}" if width and height else None,
+                "source_fps": probe.get("fps"),
+                "has_audio": probe.get("has_audio"),
+                "audio_analyzed": meta.get("audio_analyzed", False),
+                "model": meta.get("model"),
+                "base_url": meta.get("base_url"),
+                "config": meta.get("config"),
+                "windows": meta.get("windows"),
+                "frames_per_window": frames or None,
+                "frames": sum(frames) or None,
+                "frames_estimated": estimated,
+                "chunk_seconds": meta.get("chunk_seconds"),
+                "sampled_fps": meta.get("sampled_fps"),
+                "width": meta.get("width"),
+                "caption_seconds": meta.get("caption_seconds"),
+                "total_seconds": meta.get("total_seconds"),
+                "missing_sections": check_report(report_text) if report_text else None,
+                "report": f"{name}/{report.name}" if report.exists() else None,
+                "captions": f"{name}/{captions.name}" if captions.exists() else None,
+            }
+        )
+    return records
+
+
+def shared_config(records: Sequence[dict]) -> dict | None:
+    """The one requested configuration behind a directory, if it is uniform."""
+    configs = [r["config"] for r in records if r.get("config")]
+    if not configs or any(config != configs[0] for config in configs):
+        return None
+    return configs[0]
+
+
+def _describe_config(config: dict | None) -> str:
+    if not config:
+        return (
+            "not recorded (the run predates config recording); effective settings "
+            "are in each video's meta.json"
+        )
+    parts = [
+        f"{config.get('fps')} fps sampled",
+        f"{config.get('chunk_seconds')} s windows",
+        f"{config.get('max_frames')} frames/window max",
+        f"width {config.get('width')}",
+        f"{config.get('workers')} worker(s)",
+    ]
+    if config.get("focus"):
+        parts.append(f"focus: {config['focus']}")
+    if config.get("summarise") is False:
+        parts.append("no aggregate pass")
+    return ", ".join(parts)
+
+
+def render_index_markdown(out_dir: Path, records: Sequence[dict]) -> str:
+    """Render the index of everything in a results directory."""
+    footage = sum(record["duration"] or 0.0 for record in records)
+    processing = sum(record["total_seconds"] or 0.0 for record in records)
+    speed = f" ({footage / processing:.1f}x realtime)" if processing else ""
+
+    models = ", ".join(
+        f"`{model}`" for model in sorted({r["model"] for r in records if r["model"]})
+    )
+    endpoints = ", ".join(sorted({r["base_url"] for r in records if r["base_url"]}))
+    model_line = f"{models or 'unknown'}" + (f" via {endpoints}" if endpoints else "")
+
+    lines = [
+        f"# Results: {out_dir.name}",
+        "",
+        f"- **Videos:** {len(records)} ({fmt_span(footage)} of footage)",
+        f"- **Processing:** {fmt_span(processing)}{speed}",
+        f"- **Model:** {model_line}",
+        f"- **Requested settings:** {_describe_config(shared_config(records))}",
+        "- **Audio:** not analysed (the model is vision-only)",
+        "",
+        "| Video | Duration | Windows | Frames | Time | Notes |",
+        "|---|---|---|---|---|---|",
+    ]
+    for record in records:
+        name = record["name"]
+        label = f"[{name}]({record['report']})" if record["report"] else name
+        duration = fmt_ts(record["duration"]) if record["duration"] is not None else "—"
+        elapsed = (
+            fmt_span(record["total_seconds"])
+            if record["total_seconds"] is not None
+            else "—"
+        )
+        missing = record["missing_sections"]
+        notes = "missing: " + ", ".join(missing) if missing else "—"
+        frames = record["frames"]
+        frames_cell = f"~{frames}" if record["frames_estimated"] else (frames or "—")
+        lines.append(
+            f"| {label} | {duration} | {record['windows'] or '—'} | "
+            f"{frames_cell} | {elapsed} | {notes} |"
+        )
+
+    lines += [
+        "",
+        "`Notes` lists sections the aggregate pass was asked for and did not",
+        "produce. A `~` before the frame count marks an estimate from the",
+        "sampling rate. Audio is never part of these results. Rebuild this file",
+        "and `run.json` with",
+        f"`./describe_video.py --reindex {os.path.relpath(out_dir)}`.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def write_index(out_dir: Path) -> tuple[Path, Path] | None:
+    """Write run.json and RESULTS.md for a results directory.
+
+    Both are rebuilt from the per-video meta.json files on every run, so the
+    directory describes itself whether it was filled by one batch or by many
+    single runs. Returns (run.json, RESULTS.md), or None when there is nothing
+    to index.
+    """
+    records = collect_records(out_dir)
+    if not records:
+        return None
+
+    run_path = out_dir / "run.json"
+    index_path = out_dir / "RESULTS.md"
+    run_path.write_text(
+        json.dumps(
+            {
+                "experiment": out_dir.name,
+                "generated": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "videos": len(records),
+                "footage_seconds": round(sum(r["duration"] or 0.0 for r in records), 1),
+                "processing_seconds": round(
+                    sum(r["total_seconds"] or 0.0 for r in records), 1
+                ),
+                "requested": shared_config(records),
+                "results": records,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    index_path.write_text(render_index_markdown(out_dir, records))
+    return run_path, index_path
 
 
 # --------------------------------------------------------------------------- #
@@ -681,13 +1036,23 @@ def build_parser() -> argparse.ArgumentParser:
             "  ./describe_video.py clip.mp4\n"
             "  ./describe_video.py recordings/ --fps 2\n"
             "  ./describe_video.py clip.mp4 --focus 'safety equipment'\n"
+            "  ./describe_video.py --out-dir results/init-9 recordings/*.mp4\n"
+            "  ./describe_video.py --reindex results/init-9\n"
         ),
     )
     parser.add_argument(
         "videos",
-        nargs="+",
+        nargs="*",
         metavar="VIDEO",
         help="video files, directories, or glob patterns",
+    )
+    parser.add_argument(
+        "--reindex",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="rebuild DIR/RESULTS.md and DIR/run.json from existing results; "
+        "runs no model and needs no video",
     )
     parser.add_argument(
         "--out-dir",
@@ -768,6 +1133,28 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
+    if args.reindex is not None:
+        target = args.reindex.expanduser().resolve()
+        if not target.is_dir():
+            print(f"error: no such results directory: {target}", file=sys.stderr)
+            return 1
+        index = write_index(target)
+        if index is None:
+            print(
+                f"error: no per-video meta.json found under {target}", file=sys.stderr
+            )
+            return 1
+        print(f"rebuilt {index[1].name} and {index[0].name} in {target}")
+        return 0
+
+    if not args.videos:
+        print(
+            "error: no videos given. Pass files, directories or glob patterns, "
+            "or use --reindex DIR.",
+            file=sys.stderr,
+        )
+        return 1
+
     try:
         require_binaries("ffmpeg", "ffprobe")
         videos = expand_inputs(args.videos)
@@ -841,25 +1228,35 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"error: {video.name}: {error}", file=sys.stderr)
             failures += 1
 
+    index = write_index(cfg.out_dir.expanduser().resolve())
+    if index is not None:
+        print(f"\nindex: {index[1]}")
+
     if failures:
         print(f"\n{failures} of {len(videos)} video(s) failed", file=sys.stderr)
         return 1
     return 0
 
 
+def runs_in_venv(venv_dir: str, prefix: str) -> bool:
+    """Whether an interpreter reporting this sys.prefix is the given venv."""
+    return os.path.realpath(prefix) == os.path.realpath(venv_dir)
+
+
 def _ensure_venv() -> None:
     """Re-exec under the project virtualenv if started with another interpreter.
 
-    Keeps `./describe_video.py` working without activating anything. Deliberately
-    not run at import time, so importing this module has no side effects.
+    Keeps `./describe_video.py` working without activating anything. The check is
+    sys.prefix, never the executable path: `.venv/bin/python` is a symlink to the
+    system 3.12 binary, so a plain `python3` picked up from PATH can share its
+    real path while carrying none of the venv's packages. Deliberately not run at
+    import time, so importing this module has no side effects.
     """
-    venv_python = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python"
-    )
-    if os.path.isfile(venv_python) and os.path.realpath(
-        sys.executable
-    ) != os.path.realpath(venv_python):
-        os.execv(venv_python, [venv_python, os.path.abspath(__file__), *sys.argv[1:]])
+    venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv")
+    venv_python = os.path.join(venv_dir, "bin", "python")
+    if not os.path.isfile(venv_python) or runs_in_venv(venv_dir, sys.prefix):
+        return
+    os.execv(venv_python, [venv_python, os.path.abspath(__file__), *sys.argv[1:]])
 
 
 if __name__ == "__main__":

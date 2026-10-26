@@ -8,7 +8,8 @@ __pycache__/
 # Model weights (fetched by ./install.sh, ~10 GB)
 models/
 
-# Generated reports and server logs
+# Scratch: reports from ad-hoc runs, and server logs. Curated experiments live
+# in results/, which is tracked and committed.
 outputs/
 logs/
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import types
 from pathlib import Path
 
 import pytest
@@ -279,3 +281,268 @@ def test_cli_defaults_are_documented_values():
         48,
         896,
     )
+
+
+def test_cli_requires_videos_or_a_reindex(capsys):
+    assert dv.main([]) == 1
+    assert "no videos given" in capsys.readouterr().err
+
+
+def test_runs_in_venv_compares_sys_prefix(tmp_path):
+    assert dv.runs_in_venv(str(tmp_path), str(tmp_path)) is True
+    assert dv.runs_in_venv(str(tmp_path), "/usr") is False
+
+
+# --------------------------------------------------------------------------- #
+# Model client
+# --------------------------------------------------------------------------- #
+
+LOOPING_REPLY = " ".join(["MjU2MjU2MjU2"] * 300)
+PROSE_REPLY = " ".join(f"word{i}" for i in range(300))
+
+
+class _StubCompletions:
+    def __init__(self, replies):
+        self._replies = list(replies)
+        self.calls: list[dict] = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        content, finish = self._replies.pop(0)
+        choice = types.SimpleNamespace(
+            message=types.SimpleNamespace(content=content), finish_reason=finish
+        )
+        return types.SimpleNamespace(choices=[choice])
+
+
+class _StubClient:
+    """Stands in for the OpenAI client, recording how it was called."""
+
+    def __init__(self, replies):
+        self.completions = _StubCompletions(replies)
+        self.chat = types.SimpleNamespace(completions=self.completions)
+
+
+def test_looks_degenerate_catches_a_repetition_loop():
+    assert dv.looks_degenerate(LOOPING_REPLY) is True
+
+
+def test_looks_degenerate_catches_a_repeated_phrase():
+    assert dv.looks_degenerate(" ".join(["the robot turns left"] * 60)) is True
+
+
+def test_looks_degenerate_accepts_prose():
+    assert dv.looks_degenerate(PROSE_REPLY) is False
+
+
+def test_looks_degenerate_ignores_short_replies():
+    assert dv.looks_degenerate("a a a a a") is False
+
+
+def test_aggregate_token_budget_grows_with_the_window_count():
+    budgets = [dv.aggregate_token_budget(n) for n in (1, 3, 10, 50)]
+    assert budgets == sorted(budgets)
+    assert budgets[0] >= dv.AGGREGATE_BASE_TOKENS
+    assert budgets[-1] == dv.AGGREGATE_MAX_TOKENS
+
+
+def test_describer_returns_a_clean_answer_unchanged():
+    client = _StubClient([("A clean caption.", "stop")])
+    assert dv.Describer(client, "stub").chat("system", "prompt") == "A clean caption."
+    assert len(client.completions.calls) == 1
+
+
+def test_describer_retries_a_repetition_loop(capsys):
+    client = _StubClient([(LOOPING_REPLY, "stop"), ("A clean caption.", "stop")])
+
+    assert dv.Describer(client, "stub").chat("system", "prompt") == "A clean caption."
+    assert [call["temperature"] for call in client.completions.calls] == [0.0, 0.2]
+    assert client.completions.calls[1]["extra_body"] == {"repetition_penalty": 1.05}
+    assert "repetition loop" in capsys.readouterr().err
+
+
+def test_describer_warns_when_the_retry_also_loops(capsys):
+    client = _StubClient([(LOOPING_REPLY, "stop"), (LOOPING_REPLY, "stop")])
+
+    assert dv.Describer(client, "stub").chat("system", "prompt") == LOOPING_REPLY
+    assert "retry repeated itself" in capsys.readouterr().err
+
+
+def test_describer_widens_the_budget_when_an_answer_is_cut(capsys):
+    client = _StubClient([("Cut off mid", "length"), ("A complete caption.", "stop")])
+
+    text = dv.Describer(client, "stub").chat("system", "prompt", max_tokens=100)
+    assert text == "A complete caption."
+    assert [call["max_tokens"] for call in client.completions.calls] == [100, 200]
+    assert "retrying with a larger budget" in capsys.readouterr().err
+
+
+def test_describer_reports_an_answer_cut_twice(capsys):
+    client = _StubClient([("Cut off mid", "length"), ("Cut off again", "length")])
+
+    text = dv.Describer(client, "stub").chat("system", "prompt", max_tokens=100)
+    assert text == "Cut off again"
+    assert "still truncated at 200 tokens" in capsys.readouterr().err
+
+
+def test_describer_prefers_the_shorter_answer_over_a_longer_loop(capsys):
+    client = _StubClient([("Cut off mid", "length"), (LOOPING_REPLY, "length")])
+
+    text = dv.Describer(client, "stub").chat("system", "prompt", max_tokens=100)
+    assert text == "Cut off mid"
+    assert "keeping the shorter one" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
+# Experiment index
+# --------------------------------------------------------------------------- #
+
+COMPLETE_REPORT = (
+    "# Video description: clip.mp4\n\n"
+    "## Whole-video report\n\n"
+    "## Overview\nA.\n\n"
+    "## Timeline\n- 0:00.0 - b.\n\n"
+    "## Recurring elements\nc.\n\n"
+    "## Notable details\nd.\n\n"
+    "## Gaps and uncertainties\ne.\n"
+)
+
+
+def _folder(root: Path, name: str, *, report: str = COMPLETE_REPORT, **overrides):
+    """Create a per-video result folder the way a real run leaves one."""
+    folder = root / name
+    folder.mkdir(parents=True)
+    meta = {
+        "video": f"/footage/{name}.mp4",
+        "probe": {
+            "duration": 49.4,
+            "width": 720,
+            "height": 1280,
+            "fps": 30.0,
+            "has_audio": True,
+        },
+        "config": {
+            "chunk_seconds": 25.0,
+            "fps": 1.5,
+            "max_frames": 36,
+            "width": 720,
+            "workers": 3,
+            "focus": None,
+            "summarise": True,
+        },
+        "windows": 2,
+        "frames_per_window": [18, 18],
+        "chunk_seconds": 24.7,
+        "sampled_fps": 1.5,
+        "width": 720,
+        "model": "qwen3-vl-8b",
+        "base_url": "http://127.0.0.1:8000/v1",
+        "audio_analyzed": False,
+        "caption_seconds": 21.1,
+        "total_seconds": 35.0,
+    }
+    meta.update(overrides)
+    (folder / "meta.json").write_text(json.dumps(meta))
+    (folder / "chunk_captions.json").write_text("{}")
+    (folder / "description.md").write_text(report)
+    return folder
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [(35.0, "35 s"), (384.0, "6.4 min"), (5400.0, "1.5 h")],
+)
+def test_fmt_span(seconds, expected):
+    assert dv.fmt_span(seconds) == expected
+
+
+def test_check_report_accepts_a_complete_report():
+    assert dv.check_report(COMPLETE_REPORT) == []
+
+
+def test_check_report_flags_a_dropped_section():
+    text = COMPLETE_REPORT.replace("## Notable details\nd.\n\n", "")
+    assert dv.check_report(text) == ["Notable details"]
+
+
+def test_check_report_ignores_a_report_without_an_aggregate_pass():
+    assert (
+        dv.check_report("# Video description: clip.mp4\n\n## Segment summary\nA.")
+        is None
+    )
+
+
+def test_write_index_records_every_video(tmp_path):
+    _folder(tmp_path, "one")
+    _folder(tmp_path, "two")
+
+    run_path, index_path = dv.write_index(tmp_path)
+
+    run = json.loads(run_path.read_text())
+    assert run["experiment"] == tmp_path.name
+    assert run["videos"] == 2
+    assert run["footage_seconds"] == pytest.approx(98.8)
+    assert run["processing_seconds"] == pytest.approx(70.0)
+    assert run["requested"]["fps"] == 1.5
+    assert [r["name"] for r in run["results"]] == ["one", "two"]
+    assert run["results"][0]["missing_sections"] == []
+    assert run["results"][0]["report"] == "one/description.md"
+
+    index = index_path.read_text()
+    assert index.startswith(f"# Results: {tmp_path.name}")
+    assert "| Video | Duration | Windows | Frames | Time | Notes |" in index
+    assert "[one](one/description.md) | 0:49.4 | 2 | 36 | 35 s" in index
+    assert "not recorded" not in index  # the request is known for these runs
+
+
+def test_write_index_reports_dropped_sections(tmp_path):
+    _folder(
+        tmp_path,
+        "one",
+        report=COMPLETE_REPORT.replace("## Notable details\nd.\n\n", ""),
+    )
+
+    _, index_path = dv.write_index(tmp_path)
+    assert "missing: Notable details" in index_path.read_text()
+
+
+def test_write_index_notes_an_unrecorded_config(tmp_path):
+    _folder(tmp_path, "one", config=None)
+
+    run_path, index_path = dv.write_index(tmp_path)
+    assert json.loads(run_path.read_text())["requested"] is None
+    assert "not recorded" in index_path.read_text()
+
+
+def test_write_index_needs_results(tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert dv.write_index(empty) is None
+
+
+def test_write_index_skips_an_unreadable_record(tmp_path, capsys):
+    _folder(tmp_path, "good")
+    broken = tmp_path / "broken"
+    broken.mkdir()
+    (broken / "meta.json").write_text("{not json")
+
+    run_path, _ = dv.write_index(tmp_path)
+    assert [r["name"] for r in json.loads(run_path.read_text())["results"]] == ["good"]
+    assert "skipping" in capsys.readouterr().err
+
+
+def test_cli_reindex_rebuilds_an_existing_index(tmp_path, capsys):
+    _folder(tmp_path, "one")
+
+    assert dv.main(["--reindex", str(tmp_path)]) == 0
+    assert (tmp_path / "RESULTS.md").exists()
+    assert (tmp_path / "run.json").exists()
+    assert "rebuilt" in capsys.readouterr().out
+
+
+def test_cli_reindex_rejects_a_directory_without_results(tmp_path):
+    assert dv.main(["--reindex", str(tmp_path)]) == 1
+
+
+def test_cli_reindex_rejects_a_missing_directory(tmp_path):
+    assert dv.main(["--reindex", str(tmp_path / "absent")]) == 1
