@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Run a named experiment: model runner + pipeline runner, results recorded.
+# Run a named experiment: both model lanes plus the pipeline, results recorded.
 #
 #   ./run_experiment.sh init-9 ~/footage/*.mp4
-#   VLM_FPS=3 VLM_CHUNK=15 ./run_experiment.sh skating ~/clips
+#   VLM_FPS=3 VLM_NO_AUDIO=1 ./run_experiment.sh silent ~/clips
 #
 # Tuning comes from the environment and lands in each video's meta.json:
 #   VLM_FPS VLM_CHUNK VLM_MAX_FRAMES VLM_WIDTH VLM_WORKERS VLM_FOCUS
 #   VLM_SKIP_EXISTING=1  resume a batch
 #   VLM_NO_SUMMARY=1     skip the aggregate pass
-#   VLM_AUTOSTART=0      do not start the model server if it is down
+#   VLM_NO_AUDIO=1       vision only, skip the audio lane
+#   VLM_AUTOSTART=0      do not start the models if they are down
 #
 set -euo pipefail
 
@@ -16,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 
 usage() {
-  sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -40,14 +41,14 @@ fi
 OUT="results/$NAME"
 
 if [[ "${VLM_AUTOSTART:-1}" == "1" ]]; then
-  if ./serve_vlm.sh status >/dev/null 2>&1; then
-    echo "model server up: $(./serve_vlm.sh status | head -n 1)"
+  if ./serve.sh status >/dev/null 2>&1; then
+    ./serve.sh status
   else
-    echo "model server down: starting it"
-    ./serve_vlm.sh start
+    echo "models down: starting both lanes"
+    ./serve.sh start
   fi
 else
-  echo "model server: not checked (VLM_AUTOSTART=0)"
+  echo "models: not checked (VLM_AUTOSTART=0)"
 fi
 
 ARGS=(--out-dir "$OUT")
@@ -59,6 +60,7 @@ ARGS=(--out-dir "$OUT")
 [[ -n "${VLM_FOCUS:-}" ]] && ARGS+=(--focus "$VLM_FOCUS")
 [[ "${VLM_SKIP_EXISTING:-0}" == "1" ]] && ARGS+=(--skip-existing)
 [[ "${VLM_NO_SUMMARY:-0}" == "1" ]] && ARGS+=(--no-summary)
+[[ "${VLM_NO_AUDIO:-0}" == "1" ]] && ARGS+=(--no-audio)
 
 echo "experiment:  $NAME"
 echo "results:     $OUT"

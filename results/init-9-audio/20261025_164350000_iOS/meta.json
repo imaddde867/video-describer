@@ -1,0 +1,37 @@
+{
+  "video": "/home/imad/Downloads/OneDrive_1_10-26-2026/20261025_164350000_iOS.MP4",
+  "probe": {
+    "duration": 49.4,
+    "width": 720,
+    "height": 1280,
+    "fps": 30.0,
+    "has_audio": true
+  },
+  "config": {
+    "chunk_seconds": 30.0,
+    "fps": 1.0,
+    "max_frames": 48,
+    "width": 896,
+    "workers": 3,
+    "focus": null,
+    "summarise": true,
+    "audio": true
+  },
+  "windows": 2,
+  "frames_per_window": [
+    25,
+    25
+  ],
+  "chunk_seconds": 24.7,
+  "sampled_fps": 1.0,
+  "width": 896,
+  "model": "qwen3-vl-8b",
+  "base_url": "http://127.0.0.1:8000/v1",
+  "focus": null,
+  "audio_analyzed": true,
+  "audio_model": "qwen2-audio-7b",
+  "audio_base_url": "http://127.0.0.1:8001/v1",
+  "audio_seconds": 1.9,
+  "caption_seconds": 36.2,
+  "total_seconds": 170.7
+}

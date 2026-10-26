@@ -1,0 +1,97 @@
+{
+  "experiment": "init-9-audio",
+  "generated": "2026-10-26T15:30:36+02:00",
+  "videos": 2,
+  "footage_seconds": 92.2,
+  "processing_seconds": 417.2,
+  "requested": {
+    "chunk_seconds": 30.0,
+    "fps": 1.0,
+    "max_frames": 48,
+    "width": 896,
+    "workers": 3,
+    "focus": null,
+    "summarise": true,
+    "audio": true
+  },
+  "results": [
+    {
+      "name": "20261025_164350000_iOS",
+      "source": "/home/imad/Downloads/OneDrive_1_10-26-2026/20261025_164350000_iOS.MP4",
+      "duration": 49.4,
+      "resolution": "720x1280",
+      "source_fps": 30.0,
+      "has_audio": true,
+      "audio_analyzed": true,
+      "audio_model": "qwen2-audio-7b",
+      "model": "qwen3-vl-8b",
+      "base_url": "http://127.0.0.1:8000/v1",
+      "config": {
+        "chunk_seconds": 30.0,
+        "fps": 1.0,
+        "max_frames": 48,
+        "width": 896,
+        "workers": 3,
+        "focus": null,
+        "summarise": true,
+        "audio": true
+      },
+      "windows": 2,
+      "frames_per_window": [
+        25,
+        25
+      ],
+      "frames": 50,
+      "frames_estimated": false,
+      "chunk_seconds": 24.7,
+      "sampled_fps": 1.0,
+      "width": 896,
+      "caption_seconds": 36.2,
+      "total_seconds": 170.7,
+      "missing_sections": [],
+      "report": "20261025_164350000_iOS/description.md",
+      "captions": "20261025_164350000_iOS/chunk_captions.json"
+    },
+    {
+      "name": "20261025_164610000_iOS",
+      "source": "/home/imad/Downloads/OneDrive_1_10-26-2026/20261025_164610000_iOS.MP4",
+      "duration": 42.8,
+      "resolution": "720x1280",
+      "source_fps": 30.0,
+      "has_audio": true,
+      "audio_analyzed": true,
+      "audio_model": "qwen2-audio-7b",
+      "model": "qwen3-vl-8b",
+      "base_url": "http://127.0.0.1:8000/v1",
+      "config": {
+        "chunk_seconds": 30.0,
+        "fps": 1.0,
+        "max_frames": 48,
+        "width": 896,
+        "workers": 3,
+        "focus": null,
+        "summarise": true,
+        "audio": true
+      },
+      "windows": 2,
+      "frames_per_window": [
+        21,
+        21
+      ],
+      "frames": 42,
+      "frames_estimated": false,
+      "chunk_seconds": 21.4,
+      "sampled_fps": 1.0,
+      "width": 896,
+      "caption_seconds": 161.1,
+      "total_seconds": 246.5,
+      "missing_sections": [
+        "Recurring elements",
+        "Notable details",
+        "Gaps and uncertainties"
+      ],
+      "report": "20261025_164610000_iOS/description.md",
+      "captions": "20261025_164610000_iOS/chunk_captions.json"
+    }
+  ]
+}

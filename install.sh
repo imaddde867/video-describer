@@ -10,6 +10,8 @@ cd "$HERE"
 
 MODEL_REPO="${MODEL_REPO:-Qwen/Qwen3-VL-8B-Instruct-FP8}"
 MODEL_DIR="${VLM_MODEL_DIR:-$HERE/models/Qwen3-VL-8B-Instruct-FP8}"
+AUDIO_MODEL_REPO="${AUDIO_MODEL_REPO:-Qwen/Qwen2-Audio-7B-Instruct}"
+AUDIO_MODEL_DIR="${AUDIO_MODEL_DIR:-$HERE/models/Qwen2-Audio-7B-Instruct}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
 
 if ! command -v uv >/dev/null 2>&1; then
@@ -46,19 +48,24 @@ if [[ "${1:-}" == "--dev" ]]; then
   uv pip install --python .venv/bin/python -r requirements-dev.txt
 fi
 
-if [[ -f "$MODEL_DIR/config.json" ]]; then
-  echo "==> model already present at $MODEL_DIR"
-else
-  echo "==> downloading $MODEL_REPO (~10 GB) to $MODEL_DIR"
-  mkdir -p models
-  HF_HOME="$HERE/models" .venv/bin/hf download "$MODEL_REPO" --local-dir "$MODEL_DIR"
-fi
+fetch_model() { # <repo> <dir> <description>
+  if [[ -f "$2/config.json" ]]; then
+    echo "==> $3 already present at $2"
+  else
+    echo "==> downloading $1 to $2"
+    mkdir -p models
+    HF_HOME="$HERE/models" .venv/bin/hf download "$1" --local-dir "$2"
+  fi
+}
+
+fetch_model "$MODEL_REPO" "$MODEL_DIR" "vision weights (~10 GB)"
+fetch_model "$AUDIO_MODEL_REPO" "$AUDIO_MODEL_DIR" "audio weights (~17 GB)"
 
 cat <<EOF
 
 Setup complete.
 
-  ./serve_vlm.sh start     # start the model server, wait until ready
+  ./serve.sh start          # start both lanes, wait until ready
   ./describe_video.py VIDEO.mp4
 
 EOF

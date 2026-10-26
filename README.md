@@ -1,7 +1,7 @@
 # video-describer
 
-Exact, timestamped descriptions of video files, produced by a vision-language
-model running locally on a single GPU. No cloud API, no account, no API key.
+Exact, timestamped descriptions of video files, produced by vision **and audio**
+models running locally on a single GPU. No cloud API, no account, no API key.
 
 [![CI](https://github.com/imaddde867/video-describer/actions/workflows/ci.yml/badge.svg)](https://github.com/imaddde867/video-describer/actions/workflows/ci.yml)
 
@@ -10,17 +10,21 @@ Give it recorded footage and it returns, per video:
 - a whole-video overview and a merged timeline with absolute timestamps,
 - a dense caption for every window, covering events, entities, on-screen text
   and camera movement,
-- an explicit *uncertainty* section saying what the frames do not show.
+- an analysis of what the same window *sounds* like — what is said and what it
+  means, how it is said, music and tool sounds, and sound whose source is off
+  screen,
+- a fused report that states where the two readings agree and where they
+  diverge, plus explicit gaps in each of them.
 
 ## The harness
 
-Four local runners and one results tree:
+Four local runners, one results tree:
 
 | Runner | Role |
 |---|---|
-| [`install.sh`](install.sh) | environment, dependencies, model weights |
-| [`serve_vlm.sh`](serve_vlm.sh) | the model — `start` / `stop` / `status` / `fg` for the vLLM endpoint |
-| [`describe_video.py`](describe_video.py) | the pipeline — probe → chunk → caption → aggregate → report |
+| [`install.sh`](install.sh) | environment, dependencies, both sets of model weights |
+| [`serve.sh`](serve.sh) | the models — `start` / `stop` / `status` / `fg` per lane |
+| [`describe_video.py`](describe_video.py) | the pipeline — probe → chunk → caption → listen → fuse → report |
 | [`run_experiment.sh`](run_experiment.sh) | a named experiment over a set of videos, recorded under `results/<name>/` |
 
 Every run indexes the directory it writes to, producing `RESULTS.md` and
@@ -37,17 +41,28 @@ solves this problem for datacentre hardware. Its models do not fit a 32 GB
 consumer card — the default VLM needs more than 56 GB even in FP8 — and its
 full stack is ~18 containers sized for 128 GB of RAM. This tool keeps the part
 that matters, NVIDIA's chunk → dense-caption → aggregate pattern, and runs it
-against a model that fits. Background and sources:
+against models that fit. Background and sources:
 [docs/blueprint-notes.md](docs/blueprint-notes.md).
+
+## Why two lanes
+
+A single small omni model can take frames and audio together, but on a 32 GB
+card it has to give up either temporal resolution or vision quality to do so.
+Two specialised lanes cost the same GPU and keep both: the vision model samples
+~36 frames per window, the audio model hears the whole window at 16 kHz, and
+neither is told what the other reported. The fusion pass then compares them,
+which is what surfaces the useful contradictions — narration describing
+something the frames never show, or an on-screen claim the audio undermines.
 
 ## Requirements
 
-- An NVIDIA GPU with ~12 GB of free VRAM (developed on an RTX 5090, 32 GB).
-  Blackwell / sm_120 works; see [Troubleshooting](#troubleshooting) for the
-  toolchain caveat.
+- An NVIDIA GPU with ~28 GB free for both lanes together (developed on an
+  RTX 5090, 32 GB). The vision lane takes ~18 GB and the audio lane ~11 GB.
+  Blackwell / sm_120 works; see [Troubleshooting](#troubleshooting).
 - `ffmpeg` and `ffprobe` on `PATH`.
 - [uv](https://docs.astral.sh/uv/), which supplies a supported Python 3.12
   interpreter (vLLM does not support 3.14).
+- ~30 GB of disk for the weights.
 
 ## Install
 
@@ -56,32 +71,39 @@ against a model that fits. Background and sources:
 ```
 
 This creates `.venv`, installs vLLM and the OpenAI client, and downloads
-`Qwen/Qwen3-VL-8B-Instruct-FP8` (~10 GB) into `models/`.
+`Qwen/Qwen3-VL-8B-Instruct-FP8` (~10 GB, vision) and
+`Qwen/Qwen2-Audio-7B-Instruct` (~17 GB, audio) into `models/`.
 
 ## Usage
 
-Start the model server once, then describe as many videos as you like:
+Start both lanes once, then describe as many videos as you like:
 
 ```bash
-./serve_vlm.sh start      # detached; waits until the endpoint answers
+./serve.sh start          # detached; waits until both endpoints answer
 ./describe_video.py clip.mp4
 less outputs/clip/description.md
 
-./serve_vlm.sh status
-./serve_vlm.sh stop
+./serve.sh status
+./serve.sh stop
 ```
 
-`./serve_vlm.sh` with no argument runs in the foreground instead. Multiple
-videos, directories and globs are accepted, processed in sequence:
+`./serve.sh fg vision` runs one lane in the foreground. Lanes can be started
+individually — `./serve.sh start audio` — which is useful when only one is being
+worked on. Multiple videos, directories and globs are accepted, processed in
+sequence:
 
 ```bash
 ./describe_video.py footage/*.mp4
 ./describe_video.py ~/Videos/dashcam --skip-existing
 ```
 
+Audio is analysed whenever the source has a soundtrack. `--no-audio` turns the
+second lane off, which halves the model calls for silent footage or when only
+the picture matters.
+
 ### Named experiments
 
-`run_experiment.sh` starts the model if it is down, runs the pipeline into
+`run_experiment.sh` starts whichever lanes are down, runs the pipeline into
 `results/<name>/`, and records the settings in each video's `meta.json`:
 
 ```bash
@@ -93,8 +115,8 @@ VLM_FPS=1.5 VLM_CHUNK=25 VLM_MAX_FRAMES=36 VLM_WIDTH=720 VLM_WORKERS=3 \
 
 `VLM_FPS`, `VLM_CHUNK`, `VLM_MAX_FRAMES`, `VLM_WIDTH`, `VLM_WORKERS` and
 `VLM_FOCUS` map to the flags below; `VLM_SKIP_EXISTING=1` resumes a batch,
-`VLM_NO_SUMMARY=1` skips the aggregate pass, and `VLM_AUTOSTART=0` leaves the
-model server alone.
+`VLM_NO_SUMMARY=1` skips the fusion pass, `VLM_NO_AUDIO=1` skips the audio lane,
+and `VLM_AUTOSTART=0` leaves the model servers alone.
 
 To rebuild `RESULTS.md` and `run.json` for an existing results directory —
 without a GPU, and without touching the reports:
@@ -108,14 +130,15 @@ without a GPU, and without touching the reports:
 | Flag | Default | Purpose |
 |---|---|---|
 | `--fps` | `1.0` | Frames sampled per second. **The main accuracy/speed knob.** |
-| `--chunk-seconds` | `30` | Analysis window. Longer means fewer, larger model calls. |
+| `--chunk-seconds` | `30` | Analysis window. Longer means fewer, larger model calls; the audio lane splits on the same windows. |
 | `--max-frames` | `48` | Frame cap per window; lowers `--fps` automatically. |
 | `--width` | `896` | Frame width. Raise to 1200–1400 to read small on-screen text. |
-| `--workers` | `3` | Windows analysed in parallel. |
+| `--workers` | `3` | Windows analysed in parallel, in each lane. |
 | `--focus` | — | What you care about, e.g. `"safety equipment"`. |
+| `--no-audio` | off | Skip the audio lane. |
 | `--skip-existing` | off | Resume a batch without redoing finished videos. |
-| `--no-summary` | off | Skip the aggregation pass; keep only per-window captions. |
-| `--keep-frames` | off | Keep sampled JPEGs, for checking a claim against pixels. |
+| `--no-summary` | off | Skip the fusion pass; keep the per-window readings only. |
+| `--keep-frames` | off | Keep sampled frames and audio clips, for checking a claim against pixels. |
 
 Typical choices:
 
@@ -136,57 +159,65 @@ Typical choices:
 
 | File | Contents |
 |---|---|
-| `description.md` | The report: overview, timeline, recurring elements, notable details, gaps, then every window caption. |
-| `chunk_captions.json` | Each window's caption with its exact source time range. |
-| `meta.json` | Probe results, requested and effective sampling parameters, timings. |
+| `description.md` | The report: overview, timeline, spoken content, voice and sound, where sound and picture meet, recurring elements, notable details, gaps — then every window's picture and sound readings. |
+| `chunk_captions.json` | Each window's vision caption and audio analysis with their exact source time range. |
+| `meta.json` | Probe results, requested and effective sampling parameters, timings for each lane. |
 
 The directory root gets two generated files, `RESULTS.md` and `run.json`, with
 the same content in human and machine form. They are rewritten on every run.
 
 ## How it works
 
-1. `ffprobe` reads duration, geometry and frame rate.
+1. `ffprobe` reads duration, geometry, frame rate and whether there is audio.
 2. The runtime is split into equal windows, so the last one is never a stub.
-3. `ffmpeg` samples frames from each window at the requested rate.
-4. Each window's frames, in chronological order, go to the VLM with an explicit
-   frame→timestamp list, producing a dense caption anchored to those timestamps.
-5. The captions are aggregated into one report for the whole video.
+3. `ffmpeg` samples frames from each window at the requested rate, and cuts the
+   same window's audio to a mono 16 kHz WAV.
+4. Each window's frames, in chronological order, go to the vision model with an
+   explicit frame→timestamp list, producing a dense caption anchored to those
+   timestamps.
+5. The window's audio goes to the audio model, which is asked what is heard and
+   what it means — not for a transcript.
+6. The two readings are fused into one report that keeps them apart where they
+   disagree.
 
-Windows are captioned concurrently; vLLM batches them on the GPU. Replies are
-checked before use: a caption that stops on the token limit is reported on
-stderr, and one that collapses into a repetition loop is retried once with a
-mild repetition penalty. Reports that are missing a section they were asked for
-are flagged in `RESULTS.md` rather than passed off as complete.
+Windows are processed concurrently within each lane; vLLM batches them on the
+GPU. Replies are checked before use: a reading that stops on the token limit is
+retried once with double the budget, and one that collapses into a repetition
+loop is retried with a mild repetition penalty. Reports missing a section they
+were asked for are flagged in `RESULTS.md` rather than passed off as complete.
 
 ## Performance
 
-Measured on an RTX 5090. The initial experiment in [`results/init-9`](results/init-9)
-described nine portrait phone clips (7.0 min of footage, 720×1280 @ 30 fps) at
-1.5 fps and 25 s windows: **11.8 min of wall clock, 27 s to 3 min per clip** —
-0.6× realtime, because ten calls needed a recovery retry. The same set without
-retries takes about 6 min (1.2× realtime). A 10 s 1080p clip at the defaults
-takes about 3 s. Server start-up is about 3 minutes the first time (FP8 kernels
-are compiled) and about 20 s afterwards.
+Measured on an RTX 5090 with both lanes resident. The initial experiment in
+[`results/init-9`](results/init-9) describes nine portrait phone clips (7.0 min
+of footage, 720×1280 @ 30 fps) at 1.5 fps and 25 s windows. Numbers and per-clip
+timings are in its [`RESULTS.md`](results/init-9/RESULTS.md).
 
-Cost tracks generated tokens, not sampled frames: a call that writes a
-4000-token caption takes several times as long as one that writes 800.
+Server start-up is a few minutes on the first run (FP8 kernels are compiled for
+both lanes) and much faster afterwards. Cost tracks generated tokens rather than
+sampled frames, and the audio lane adds one call per window that is cheap by
+comparison — a 25 s window is a handful of audio tokens.
 
 ## Limitations
 
-- **Audio is ignored.** Qwen3-VL is vision-only; speech and off-screen sound
-  contribute nothing. Videos with an audio track are flagged as such.
+- **Audio understanding is interpretation.** The audio model hears speech, tone,
+  music and events, but it is a 7B model: treat descriptions of emotion, intent
+  or "who is speaking" as inference, not measurement.
+- **No word-level alignment.** Sound is analysed per window, not per lip
+  movement; quoting a sentence does not give you its exact onset time.
 - **Sampling is sparse.** At 1 fps, 29 of every 30 frames are never seen, so a
-  brief event can be missed. Raise `--fps` for fast action.
+  brief visual event can be missed. Raise `--fps` for fast action. The audio
+  lane hears every second, so an event the eye misses may still appear.
 - **Timestamps drift in fast cuts.** Anchoring is per sampled frame, but a busy
   stretch can be off by 1–3 s at 1.5 fps. Raise `--fps` and shorten
   `--chunk-seconds` together to stay inside the frame cap for tighter timing.
-- **The model can be overconfident.** It often reports no uncertainty. Treat
-  that section as a hint and spot-check with `--keep-frames`.
+- **The vision model can be overconfident.** It often reports no uncertainty.
+  Treat that section as a hint and spot-check with `--keep-frames`.
 - **It may anticipate an ending.** An action can be described as complete when
   the last sampled frame only shows it starting.
 - **Text reading degrades** on small or low-contrast on-screen text at the
   default `--width`.
-- **A section can go missing.** The aggregate pass occasionally drops one of its
+- **A section can go missing.** The fusion pass occasionally drops one of its
   headings, usually when generated text ran long; `RESULTS.md` flags it.
 - **One GPU, one video at a time.** Run batches sequentially.
 
@@ -194,44 +225,55 @@ Cost tracks generated tokens, not sampled frames: a call that writes a
 
 **`Engine core initialization failed` / `NVCC version must be at least 12.9`.**
 The FP8 path compiles kernels at start-up, and an older `nvcc` on `PATH` cannot
-target sm_120. `serve_vlm.sh` selects `/usr/local/cuda-13.x` automatically when
+target sm_120. `serve.sh` selects `/usr/local/cuda-13.x` automatically when
 `CUDA_HOME` is unset. If it still fails:
 
 ```bash
-VLM_DISABLE_DEEPGEMM=1 ./serve_vlm.sh    # slower FP8 kernels, no compiler needed
+VLM_DISABLE_DEEPGEMM=1 ./serve.sh start
 ```
+
+**Out of memory when both lanes are up.** They are sized for 28 GB of a 32 GB
+card. Give them less if something else holds VRAM:
+
+```bash
+VLM_GPU_UTIL=0.5 AUDIO_GPU_UTIL=0.3 ./serve.sh start
+```
+
+or run one lane at a time (`./serve.sh start audio`) and use `--no-audio` on the
+other. On a card with room to spare, `AUDIO_QUANT= ./serve.sh start audio` serves
+the audio lane in bf16 instead of FP8.
 
 **The server comes up on an unexpected port.** Some shells export `PORT`, which
-collides with common defaults. This launcher uses `VLM_PORT`:
+collides with common defaults. The lanes use `VLM_PORT` and `AUDIO_PORT`:
 
 ```bash
-VLM_PORT=8001 ./serve_vlm.sh start
+VLM_PORT=8000 AUDIO_PORT=8001 ./serve.sh start
 ```
 
-**`Connection refused` from `describe_video.py`.** Check the server and the
-endpoint:
+**`error: audio endpoint ... is not answering`.** The pipeline checks the audio
+lane before starting work. `./serve.sh status` says which lane is down.
+
+**`Connection refused`.** Check both endpoints directly:
 
 ```bash
-./serve_vlm.sh status
+./serve.sh status
 curl -s http://127.0.0.1:8000/v1/models
+curl -s http://127.0.0.1:8001/v1/models
 ```
 
 **`error: the 'openai' package is missing`.** The script runs itself under
 `.venv` when another interpreter starts it, so this means `.venv` is absent or
 incomplete — run `./install.sh`.
 
-**`warning: the model ran out of tokens`.** That caption or report was cut.
-Lower `--fps` or `--chunk-seconds` so each call carries less, or raise
-`CAPTION_MAX_TOKENS` in `describe_video.py`.
+**`warning: the model ran out of tokens`.** That reading was cut. Lower `--fps`
+or `--chunk-seconds` so each call carries less, or raise `CAPTION_MAX_TOKENS` in
+`describe_video.py`.
 
-**Out of memory when raising `--fps` or `--width`.** Lower `--max-frames`, or
-restart with a smaller context: `MAX_MODEL_LEN=16384 ./serve_vlm.sh start`.
-
-**Use a different model.** Any OpenAI-compatible VLM endpoint works:
+**Use a different model.** Any OpenAI-compatible endpoint works:
 
 ```bash
-VLM_MODEL_DIR=/path/to/other-vlm ./serve_vlm.sh start
-./describe_video.py clip.mp4 --model other-vlm
+VLM_MODEL_DIR=/path/to/other-vlm ./serve.sh start vision
+./describe_video.py clip.mp4 --model other-vlm --no-audio
 ```
 
 ## Development
@@ -245,15 +287,15 @@ VLM_MODEL_DIR=/path/to/other-vlm ./serve_vlm.sh start
 
 Tests generate their own media with `ffmpeg` and never call a model, so they run
 without a GPU and are what CI executes. `tests/` covers window planning,
-timestamp formatting, probing, frame extraction, report rendering, the model
-client's truncation and repetition handling, input expansion, the results index
-and CLI validation.
+timestamp formatting, probing, frame and audio extraction, report rendering,
+prompt assembly for both lanes, the model client's truncation and repetition
+handling, input expansion, the results index and CLI validation.
 
 ## Layout
 
 ```
-describe_video.py         pipeline, index and CLI
-serve_vlm.sh              model server lifecycle (start/stop/status/fg)
+describe_video.py         pipeline, two lanes, fusion, index and CLI
+serve.sh                  model lifecycle for both lanes
 run_experiment.sh         named experiment runner
 install.sh                environment and weight setup
 tests/                    unit tests, no GPU required

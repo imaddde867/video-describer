@@ -168,13 +168,14 @@ def _info(**overrides) -> dv.VideoInfo:
     return dv.VideoInfo(**fields)
 
 
-def _caption(index=0, start=0.0, end=30.0) -> dv.WindowCaption:
+def _caption(index=0, start=0.0, end=30.0, audio=None) -> dv.WindowCaption:
     return dv.WindowCaption(
         index=index,
         start=start,
         end=end,
         frames=30,
         caption="## Segment summary\nA test.",
+        audio=audio,
     )
 
 
@@ -218,6 +219,170 @@ def test_render_markdown_records_the_focus():
         sampled_fps=1.0,
     )
     assert "- **Focus:** hard hats" in report
+
+
+# --------------------------------------------------------------------------- #
+# Audio lane
+# --------------------------------------------------------------------------- #
+
+
+def test_extract_audio_writes_a_wav(sample_video, tmp_path):
+    clip = dv.extract_audio(Path(sample_video), 0.0, 3.0, tmp_path / "w0.wav")
+    assert clip.suffix == ".wav"
+    assert clip.stat().st_size > 1000
+
+
+def test_extract_audio_rejects_a_video_without_sound(silent_video, tmp_path):
+    with pytest.raises(RuntimeError):
+        dv.extract_audio(Path(silent_video), 0.0, 2.0, tmp_path / "w0.wav")
+
+
+def test_report_sections_add_sound_only_when_audio_is_analysed():
+    assert "Spoken content" not in dv.report_sections(False)
+    assert "Spoken content" in dv.report_sections(True)
+    assert "Gaps and uncertainties" in dv.report_sections(True)
+
+
+def test_audio_prompt_names_the_window_and_refuses_transcription():
+    prompt = dv.audio_prompt(30.0, 25.0, False)
+    assert "0:30.0" in prompt
+    assert "0:55.0" in prompt
+    assert "Do NOT transcribe" in prompt
+
+
+def _prompt(step, audio=True):
+    captions = [_caption(audio="## Audio summary\nA drill runs." if audio else None)]
+    return dv.aggregate_prompt(
+        captions, chunk=25.0, duration="0:30.0", force_hours=False, step=step
+    )
+
+
+def test_every_pass_carries_both_readings_and_its_own_sections():
+    for step in dv.report_passes(with_audio=True, windows=2):
+        prompt = _prompt(step)
+        assert "--- CAPTIONS ---" in prompt
+        assert "--- AUDIO ---" in prompt
+        assert "A drill runs." in prompt
+        assert dv.AGGREGATE_SECTIONS_INTRO in prompt
+        assert f"## {step.sections[0][0]}" in prompt
+
+
+def test_no_pass_preamble_reads_as_a_heading():
+    # The model answered "You are writing the FUSION part" with a `**FUSION**`
+    # heading, so the section it was asked for never appeared in the report.
+    for step in dv.report_passes(with_audio=True, windows=2):
+        assert not any(
+            word.isupper() and len(word) > 2 for word in step.preamble.split()
+        )
+
+
+def test_report_passes_cover_every_section_exactly_once_in_reading_order():
+    passes = dv.report_passes(with_audio=True, windows=2)
+    written = [name for step in passes for name, _ in step.sections]
+
+    assert written == list(dv.report_sections(True))
+    assert [step.name for step in passes] == ["opening", "fusion", "closing"]
+
+
+def test_report_passes_skip_the_sound_steps_without_audio():
+    passes = dv.report_passes(with_audio=False, windows=2)
+    written = [name for step in passes for name, _ in step.sections]
+
+    assert written == list(dv.report_sections(False))
+    assert [step.name for step in passes] == ["opening", "closing"]
+
+
+def test_report_pass_budgets_grow_with_the_window_count_and_stay_bounded():
+    small = [step.max_tokens for step in dv.report_passes(True, 2)]
+    big = [step.max_tokens for step in dv.report_passes(True, 40)]
+
+    assert small[0] < big[0]
+    assert max(big) <= dv.AGGREGATE_MAX_TOKENS
+
+
+def test_the_fusion_pass_is_asked_for_short_prose():
+    fusion = next(s for s in dv.report_passes(True, 2) if s.name == "fusion")
+    prompt = _prompt(fusion).replace("\n", " ")
+
+    assert "two or three short paragraphs of prose" in prompt
+    assert "at most five points" in prompt
+    assert "never list items as divergences" in prompt
+
+
+def test_the_opening_pass_bounds_the_timeline():
+    opening = next(s for s in dv.report_passes(True, 2) if s.name == "opening")
+    prompt = _prompt(opening).replace("\n", " ")
+
+    assert "a walkthrough of on-screen text is " in prompt
+    assert "about ten to twenty entries" in prompt
+    assert "restating it elsewhere in the report is wrong" in prompt
+    assert "Never phrase an entry as an absence" in prompt
+
+
+def test_the_closing_pass_bans_gaps_phrased_as_absences():
+    closing = next(s for s in dv.report_passes(True, 2) if s.name == "closing")
+    prompt = _prompt(closing).replace("\n", " ")
+
+    assert "Never phrase an entry as an absence" in prompt
+    assert "is not a gap" in prompt
+    assert "At most six entries" in prompt
+    assert "give at most ten" in prompt
+
+
+def test_no_pass_is_shown_its_own_text_so_far():
+    # Quoted back its earlier output, the model expanded and padded instead of
+    # moving on to the next sections, and lost the last one to the budget.
+    closing = next(s for s in dv.report_passes(True, 2) if s.name == "closing")
+
+    assert "WRITTEN SO FAR" not in _prompt(closing)
+
+
+def test_the_prompt_without_audio_omits_the_sound_sections():
+    opening = dv.report_passes(with_audio=False, windows=2)[0]
+    prompt = _prompt(opening, audio=False)
+
+    assert "--- AUDIO ---" not in prompt
+    assert "Spoken content" not in prompt
+
+
+def test_check_report_expects_the_sound_sections_when_audio_ran():
+    text = "# Video description: clip.mp4\n\n## Whole-video report\n\n" + "".join(
+        f"## {name}\nA.\n\n" for name in dv.report_sections(False)
+    )
+
+    assert dv.check_report(text, dv.report_sections(True)) == [
+        "Spoken content",
+        "Voice and sound",
+        "Sound and picture together",
+    ]
+
+
+def test_render_markdown_shows_both_readings_per_window():
+    report = dv.render_markdown(
+        _info(),
+        [_caption(audio="## Audio summary\nA drill runs.")],
+        summary="Fused.",
+        cfg=dv.Config(),
+        chunk=30.0,
+        sampled_fps=1.0,
+    )
+    assert "#### Picture" in report
+    assert "#### Sound" in report
+    assert "A drill runs." in report
+    assert "`qwen2-audio-7b`" in report
+
+
+def test_render_markdown_marks_audio_as_not_analysed():
+    report = dv.render_markdown(
+        _info(),
+        [_caption()],
+        summary="",
+        cfg=dv.Config(),
+        chunk=30.0,
+        sampled_fps=1.0,
+    )
+    assert "#### Sound" not in report
+    assert "- **Audio:** not analysed" in report
 
 
 # --------------------------------------------------------------------------- #
@@ -273,6 +438,12 @@ def test_cli_no_summary_flag_parses():
     assert args.summarise is False
 
 
+def test_cli_audio_is_on_unless_disabled():
+    parser = dv.build_parser()
+    assert parser.parse_args(["clip.mp4"]).audio is True
+    assert parser.parse_args(["clip.mp4", "--no-audio"]).audio is False
+
+
 def test_cli_defaults_are_documented_values():
     args = dv.build_parser().parse_args(["clip.mp4"])
     assert (args.fps, args.chunk_seconds, args.max_frames, args.width) == (
@@ -299,6 +470,20 @@ def test_runs_in_venv_compares_sys_prefix(tmp_path):
 
 LOOPING_REPLY = " ".join(["MjU2MjU2MjU2"] * 300)
 PROSE_REPLY = " ".join(f"word{i}" for i in range(300))
+
+
+# The shape that slipped past the n-gram ratio: a whole block of genuinely
+# varied lines repeated, so the cycle itself contributes plenty of unique
+# n-grams (with three copies the ratio sits near a third, above the threshold).
+def _varied_block(lines: int = 12, words_per_line: int = 10) -> str:
+    pool = [f"token{n:03d}" for n in range(lines * words_per_line)]
+    return "\n".join(
+        " ".join(pool[i * words_per_line : (i + 1) * words_per_line])
+        for i in range(lines)
+    )
+
+
+LONG_PERIOD_LOOP = "\n\n".join([_varied_block()] * 3)
 
 
 class _StubCompletions:
@@ -339,11 +524,67 @@ def test_looks_degenerate_ignores_short_replies():
     assert dv.looks_degenerate("a a a a a") is False
 
 
-def test_aggregate_token_budget_grows_with_the_window_count():
-    budgets = [dv.aggregate_token_budget(n) for n in (1, 3, 10, 50)]
-    assert budgets == sorted(budgets)
-    assert budgets[0] >= dv.AGGREGATE_BASE_TOKENS
-    assert budgets[-1] == dv.AGGREGATE_MAX_TOKENS
+def test_looks_degenerate_catches_a_long_period_loop():
+    assert dv.looks_degenerate(LONG_PERIOD_LOOP) is True
+
+
+def test_looks_degenerate_tolerates_a_block_that_appears_twice():
+    body = _varied_block()
+
+    assert dv.looks_degenerate(f"## Timeline\n{body}\n\n{body}") is False
+
+
+def test_trim_repeated_lines_collapses_a_locked_loop():
+    line = '- Audio says "mac os x 10.12" — visual says "macOS 26+."'
+    text = f"## Gaps and uncertainties\n{line}\n" + f"{line}\n" * 42 + "- A real point."
+
+    assert dv.trim_repeated_lines(text).count(line) == 1
+
+
+def test_trim_repeated_lines_keeps_a_point_made_in_two_sections():
+    line = "- Audio says the app needs macOS 26 or later, which the frames confirm."
+    text = f"## Sound and picture together\n{line}\n\n## Notable details\n{line}"
+
+    assert dv.trim_repeated_lines(text).count(line) == 2
+
+
+def test_trim_repeated_lines_leaves_ordinary_prose_alone():
+    text = "## Overview\nA hand places the toy on the desk.\n\nThe screen wakes."
+
+    assert dv.trim_repeated_lines(text) == text
+
+
+def test_describer_trims_a_loop_that_survives_every_retry(capsys):
+    loop = '- Audio says "clod pro" — likely a typo for "Claude Pro."'
+    degenerate = f"## Gaps\n{loop}\n" + f"{loop}\n" * 40
+    client = _StubClient([(degenerate, "stop"), (degenerate, "stop")])
+
+    answer = dv.Describer(client, "stub").chat("system", "prompt")
+
+    assert answer.count(loop) == 1
+    assert "dropped 40 repeated line(s)" in capsys.readouterr().err
+
+
+def test_a_report_pass_does_not_widen_a_cut_answer(capsys):
+    client = _StubClient([("## Overview\nA cut report.", "length")])
+
+    answer = dv.Describer(client, "stub").chat(
+        "system", "prompt", max_tokens=100, loop_resistant=True, widen=False
+    )
+
+    assert answer == "## Overview\nA cut report."
+    assert len(client.completions.calls) == 1
+    assert "keeping it as it is" in capsys.readouterr().err
+
+
+def test_a_loop_resistant_pass_starts_with_the_sampling_that_breaks_loops():
+    client = _StubClient([("A clean report.", "stop")])
+
+    answer = dv.Describer(client, "stub").chat("system", "prompt", loop_resistant=True)
+
+    assert answer == "A clean report."
+    assert client.completions.calls[0]["temperature"] == 0.2
+    assert client.completions.calls[0]["extra_body"] == {"repetition_penalty": 1.05}
 
 
 def test_describer_returns_a_clean_answer_unchanged():

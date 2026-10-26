@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Describe videos exactly, using a local vision-language model.
+"""Describe videos exactly, using local vision and audio models.
 
 The pipeline mirrors NVIDIA's long-video-summarization pattern: split the
 runtime into windows, caption each window densely from sampled frames, then
 aggregate the captions into one report for the whole video.
+
+Audio takes a second lane. Each window's soundtrack goes to a model that can
+hear while the frames go to one that can see, and neither is told what the other
+reported; the fusion pass then states where the two agree and where they
+diverge. Keeping the lanes separate means each modality is handled by a model
+that specialises in it, instead of one model splitting its capacity.
 
 Usage:
     ./describe_video.py clip.mp4
@@ -30,13 +36,15 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 VIDEO_SUFFIXES = {
     ".mp4",
@@ -113,65 +121,267 @@ Anything you cannot determine from these {n} frames alone: what happens in the
 gaps between frames, off-screen context, indistinct objects, unreadable text.
 """
 
-AGGREGATE_SYSTEM = (
-    "You are a meticulous video analyst. You summarise only what the supplied "
-    "captions state. You never add detail that is not in them, and you flag "
-    "gaps instead of filling them in."
+AUDIO_SYSTEM = (
+    "You are a meticulous audio analyst. You describe only what can be heard in "
+    "the clip you are given, as understanding rather than transcription. You "
+    "never guess identities, names, brands, or intent, and you never invent "
+    "words or sounds you cannot make out. When something is unclear or "
+    "inaudible, you say so explicitly."
 )
 
-AGGREGATE_PROMPT = """\
+AUDIO_PROMPT = """\
+This is {span:g} seconds of audio, from {start_ts} to {end_ts} of a video.
+
+Describe what can be heard. Use these sections:
+
+## Audio summary
+3-5 sentences on what a listener hears from beginning to end: who speaks, what
+the speech is about, and what else carries the segment. Judge only what you
+hear, not what a video like this usually contains.
+
+## Speech
+First say what is being said and what it means, in your own words: the claim,
+argument, joke or instruction. Then quote at most two short phrases whose exact
+wording matters (a name, a number, a price, a product). Do NOT transcribe the
+clip, and do not guess what a product is beyond how it is described. If nobody
+speaks, write "no speech".
+
+## Delivery and tone
+Who is speaking and how: one person or several, conversational or
+presentational, pace, emphasis, hesitation, excitement, deadpan, laughter,
+audible cuts between takes. Note any change during the segment. Say so plainly
+if the delivery is too flat or muffled to judge.
+
+## Music and effects
+Music presence, style and any change in it; sound effects; device, tool and
+material sounds; ambient noise. Name them concretely (solder sizzle, keyboard
+clicks, motor whirr, cardboard handling, room tone). State whether the only
+sound is room tone, and write "silence" only if there is nothing at all.
+
+## Sound off screen
+Sounds whose source is not in a typical frame: speech from another room, pets,
+traffic, notifications, tools being handled out of view. A viewer watching only
+the picture would not know these happened, so they matter.
+
+## Uncertainty
+Anything you cannot make out: muffled or overlapping speech, unclear words,
+sounds you cannot identify, audio too quiet to judge.
+"""
+
+AGGREGATE_SYSTEM = (
+    "You are a meticulous video analyst. You summarise only what the supplied "
+    "readings state. You never add detail that is not in them, you reconcile "
+    "what is seen against what is heard, and you flag gaps instead of filling "
+    "them in."
+)
+
+# The aggregate pass is assembled from these parts so the sound sections appear
+# only when audio was actually analysed.
+AGGREGATE_SECTIONS_OPENING = (
+    (
+        "Overview",
+        "One paragraph: what the video is, what happens over its full length, and "
+        "what it sounds like.",
+    ),
+    (
+        "Timeline",
+        "A single merged, chronological bullet list covering the entire video, in "
+        "the form `<timestamp> - <what happens>`, using absolute timestamps "
+        "(`M:SS` or `H:MM:SS`). Merge duplicate, overlapping, and repetitive "
+        "events into one line each. Cover the whole runtime, but not at a fixed "
+        "interval: an entry belongs where something changes. A clip under a "
+        "minute needs about ten to twenty entries. If the video is largely "
+        "static, a short timeline is the correct answer — do not pad it to look "
+        "thorough.\n\n"
+        "List what happens, not what is written. Do not turn caption or subtitle "
+        "wording into timeline entries; put that wording under Notable details "
+        'instead. Wrong: `0:05 - text changes to "and."`. Right: one line for '
+        "the event those frames belong to — a walkthrough of on-screen text is "
+        "not a timeline.",
+    ),
+)
+
+AGGREGATE_SECTIONS_SOUND = (
+    (
+        "Spoken content",
+        "What is actually being said and what it means — the claim, argument, "
+        "joke or instruction, in your own words. Quote wording only where it "
+        "carries the point (a name, number, price, product). Never transcribe "
+        'the clip. Say who speaks and when they start or stop; use "no speech" '
+        "if nobody does.",
+    ),
+    (
+        "Voice and sound",
+        "How it is said and what else is heard: delivery and tone, changes "
+        "between takes, music and its role, tool and material sounds, ambience. "
+        "Name concrete sounds, and note any whose source is never visible.",
+    ),
+    (
+        "Sound and picture together",
+        "What the two readings agree on, then where they genuinely diverge: "
+        "narration that describes something the frames do not show, a sound that "
+        "explains an otherwise unclear action, on-screen text that contradicts "
+        "what is said, a moment where the sound carries the meaning. Group "
+        "similar cases into one point and give at most five. A sound reading only "
+        "covers what was heard, so it not mentioning a detail is narrower "
+        "coverage, not a disagreement — never list items as divergences merely "
+        "because the sound reading omits them.",
+    ),
+)
+
+AGGREGATE_SECTIONS_CLOSING = (
+    (
+        "Recurring elements",
+        "People, objects, settings, or actions that appear more than once, and "
+        "how they change over the video. At most eight entries.",
+    ),
+    (
+        "Notable details",
+        "Concrete, checkable specifics: on-screen text, counts, colours, "
+        "quantities, prices, names, transitions, anything a viewer would want "
+        "quoted. Quote the wording that matters rather than every variant of it, "
+        "group near-identical entries, and give at most ten.",
+    ),
+    (
+        "Gaps and uncertainties",
+        "At most six entries, and only what the readings themselves could not "
+        "resolve: an unclear or overlapping word, a sound you cannot identify, a "
+        "detail the two readings disagree about. Never phrase an entry as an "
+        'absence — not "no X", "X is not shown", "X is not referenced", "no '
+        'confirmation of X". A topic the video simply does not cover is not a gap.',
+    ),
+)
+
+AGGREGATE_INTRO_SOUND = """\
+Below are two independent readings of the same {n} consecutive segments of one
+video ({duration} long, windows of about {chunk:g} seconds): CAPTIONS from a
+vision model that saw sampled frames and could not hear, and AUDIO from an
+audio model that heard each window and could not see. Neither model knew what
+the other reported. Both readings cover the whole video.
+"""
+
+AGGREGATE_INTRO_VISION = """\
 Below are captions for consecutive {n} segments of a single video, produced by
 a vision model that saw sampled frames from each segment. The video is
 {duration}, split into {n} windows of about {chunk:g} seconds.
-
-Write one coherent report describing the whole video exactly. Use these sections:
-
-## Overview
-One paragraph: what the video is and what happens over its full length.
-
-## Timeline
-A single merged, chronological bullet list covering the entire video, in the
-form `<timestamp> - <what happens>`, using absolute timestamps (`M:SS` or
-`H:MM:SS`). Merge duplicate, overlapping, and repetitive events into one line
-each. Cover the whole runtime. If the video is largely static, a short timeline
-is the correct answer — do not pad it to look thorough.
-
-List what happens, not what is written. Do not turn caption or subtitle wording
-into timeline entries; put that wording under Notable details instead.
-
-## Recurring elements
-People, objects, settings, or actions that appear more than once, and how they
-change over the video.
-
-## Notable details
-Concrete, checkable specifics: on-screen text, counts, colours, quantities,
-transitions, anything a viewer would want quoted. Quote the wording that
-matters rather than every variant of it, and group near-identical entries.
-
-Write every section, even when it is short; use "none" or "not determinable"
-rather than dropping a heading.
-
-## Gaps and uncertainties
-What the captions leave unclear, disagree about, or could not see.
-
-Do not invent anything that is not supported by the captions below.
-
---- CAPTIONS ---
-{captions}
 """
+
+AGGREGATE_RULES = """\
+Write every section, even when it is short; use "none" or "not determinable"
+rather than dropping a heading. Make each point once: a point belongs to one
+section, and restating it elsewhere in the report is wrong.
+
+Never phrase an entry as an absence. Reporting that a reading does not mention
+something adds nothing — an unmentioned topic is not a finding — and listing
+those omissions is how this report has gone wrong before.
+
+Do not invent anything that is not supported by the readings below.
+"""
+
+# The report is written in three bounded calls instead of one. Asked for all
+# eight sections at once from two long readings, the model padded, ran past its
+# budget and looped on its last line; each pass below finishes on its own, and
+# the fusion section is prose because a list of near-identical comparisons is
+# what invited the loop. Budgets come from measuring that behaviour: the opening
+# pass stops itself well inside its room, and the closing pass stops at about
+# half of it.
+AGGREGATE_OPENING_BASE_TOKENS = 1200
+AGGREGATE_OPENING_TOKENS_PER_WINDOW = 500
+AGGREGATE_FUSION_TOKENS = 900
+AGGREGATE_CLOSING_BASE_TOKENS = 800
+AGGREGATE_CLOSING_TOKENS_PER_WINDOW = 200
+AGGREGATE_MAX_TOKENS = 14000
+
+AGGREGATE_FUSION_PREAMBLE = (
+    "You are writing the fusion part of one report on the whole video, from the "
+    "same two readings. Write it as two or three short paragraphs of prose — no "
+    "bullet lists — naming at most five points."
+)
+
+# The section list is introduced by this line for every pass: without it the
+# model answers its preamble instead, echoing a word from it as its heading.
+AGGREGATE_SECTIONS_INTRO = (
+    "Write exactly these sections, in this order, and nothing else:\n"
+)
+
+
+@dataclass(frozen=True)
+class ReportPass:
+    """One aggregate call: the sections it writes and the room it gets."""
+
+    name: str
+    preamble: str
+    sections: tuple[tuple[str, str], ...]
+    max_tokens: int
+
+
+def report_passes(with_audio: bool, windows: int) -> tuple[ReportPass, ...]:
+    """The aggregate calls, in the order the report is read."""
+    opening = AGGREGATE_SECTIONS_OPENING
+    if with_audio:
+        opening += AGGREGATE_SECTIONS_SOUND[:2]
+    passes = [
+        ReportPass(
+            "opening",
+            "You are writing the first part of one report on the whole video.",
+            opening,
+            min(
+                AGGREGATE_MAX_TOKENS,
+                AGGREGATE_OPENING_BASE_TOKENS
+                + AGGREGATE_OPENING_TOKENS_PER_WINDOW * windows,
+            ),
+        )
+    ]
+    if with_audio:
+        passes.append(
+            ReportPass(
+                "fusion",
+                AGGREGATE_FUSION_PREAMBLE,
+                AGGREGATE_SECTIONS_SOUND[2:],
+                AGGREGATE_FUSION_TOKENS,
+            )
+        )
+    passes.append(
+        ReportPass(
+            "closing",
+            "You are writing the closing part of the same report.",
+            AGGREGATE_SECTIONS_CLOSING,
+            min(
+                AGGREGATE_MAX_TOKENS,
+                AGGREGATE_CLOSING_BASE_TOKENS
+                + AGGREGATE_CLOSING_TOKENS_PER_WINDOW * windows,
+            ),
+        )
+    )
+    return tuple(passes)
+
+
+def report_sections(with_audio: bool) -> tuple[str, ...]:
+    """The sections the aggregate pass is asked for, in reading order."""
+    sections = AGGREGATE_SECTIONS_OPENING
+    if with_audio:
+        sections += AGGREGATE_SECTIONS_SOUND
+    sections += AGGREGATE_SECTIONS_CLOSING
+    return tuple(name for name, _ in sections)
+
 
 # Captions of text-dense footage run well past 1400 tokens and were being cut
 # mid-sentence; the aggregate pass needs room to reach its last sections. Budget
 # that goes unused costs nothing, so both limits are deliberately generous.
 CAPTION_MAX_TOKENS = 4000
-AGGREGATE_BASE_TOKENS = 2000
-AGGREGATE_TOKENS_PER_WINDOW = 800
-AGGREGATE_MAX_TOKENS = 12000
+# The audio model's own context is small, and its KV cache is ~0.75 MB per token,
+# so its reply budget is kept well inside it.
+AUDIO_MAX_TOKENS = 1400
 
 # A repeating cycle is at most a quarter of the n-grams it produces; ordinary
 # prose runs far above that.
 DEGENERATE_MIN_WORDS = 40
 DEGENERATE_MAX_UNIQUE_RATIO = 0.25
+# A loop can also repeat a long block: its many distinct n-grams keep the ratio
+# above the threshold while the same whole lines come back over and over. Those
+# lines are counted separately, ignoring short ones such as "- none.".
+DEGENERATE_MIN_LINE_CHARS = 40
+DEGENERATE_MIN_LINE_REPEATS = 3
 
 FOCUS_SUFFIX = (
     "\nThe person who requested this analysis cares most about: {focus}\n"
@@ -188,6 +398,19 @@ FOCUS_SUFFIX = (
 def run(cmd: Sequence[str]) -> subprocess.CompletedProcess:
     """Run a command, capturing output as text."""
     return subprocess.run(list(cmd), capture_output=True, text=True)
+
+
+def require_endpoint(base_url: str, what: str) -> None:
+    """Fail fast when a model server is not answering, instead of per call."""
+    url = base_url.rstrip("/") + "/models"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as response:
+            response.read(1)
+    except OSError as error:
+        raise RuntimeError(
+            f"{what} endpoint {base_url} is not answering ({error}). "
+            "Start the servers with `./serve.sh start`."
+        ) from error
 
 
 def require_binaries(*names: str) -> None:
@@ -354,7 +577,28 @@ def extract_frames(
             f"no frames extracted from {video.name} at {start:.1f}s "
             f"(fps={fps:g}, duration={duration:.1f}s)"
         )
+
     return frames
+
+
+def extract_audio(video: Path, start: float, duration: float, dest: Path) -> Path:
+    """Cut one window's audio to the mono 16 kHz WAV the audio model expects."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    cmd = ["ffmpeg", "-nostdin", "-v", "error", "-y"]
+    if start > 0:
+        cmd += ["-ss", f"{start:.3f}"]
+    cmd += ["-i", str(video), "-t", f"{duration:.3f}", "-vn"]
+    cmd += ["-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(dest)]
+
+    proc = run(cmd)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg audio extraction failed:\n{proc.stderr.strip()}")
+    if not dest.exists() or dest.stat().st_size == 0:
+        raise RuntimeError(
+            f"no audio extracted from {video.name} at {start:.1f}s "
+            f"(duration={duration:.1f}s)"
+        )
+    return dest
 
 
 # --------------------------------------------------------------------------- #
@@ -373,17 +617,46 @@ def looks_degenerate(text: str) -> bool:
     words = text.split()
     if len(words) < DEGENERATE_MIN_WORDS:
         return False
-    for size in (4, 8):
+    for size in (4, 8, 16):
         grams = [tuple(words[i : i + size]) for i in range(len(words) - size + 1)]
         if grams and len(set(grams)) / len(grams) < DEGENERATE_MAX_UNIQUE_RATIO:
+            return True
+    lines = [
+        line.strip().lower()
+        for line in text.splitlines()
+        if len(line.strip()) >= DEGENERATE_MIN_LINE_CHARS
+    ]
+    if lines:
+        repeats = Counter(lines).most_common(1)[0][1]
+        if repeats >= DEGENERATE_MIN_LINE_REPEATS:
             return True
     return False
 
 
-def aggregate_token_budget(windows: int) -> int:
-    """Output room for a report, which grows with the number of windows."""
-    scaled = AGGREGATE_BASE_TOKENS + AGGREGATE_TOKENS_PER_WINDOW * windows
-    return min(AGGREGATE_MAX_TOKENS, scaled)
+def trim_repeated_lines(text: str) -> str:
+    """Drop consecutive repeats of a long line.
+
+    A locked loop emits the same sentence over and over, which the reader gains
+    nothing from: the first copy carries the point and the rest are noise.
+    Repeats that are *not* consecutive are left alone, because a report
+    legitimately revisits a point under a different heading.
+    """
+    kept: list[str] = []
+    previous = ""
+    dropped = 0
+    for line in text.splitlines():
+        key = line.strip().lower()
+        if key and len(key) >= DEGENERATE_MIN_LINE_CHARS and key == previous:
+            dropped += 1
+            continue
+        kept.append(line)
+        previous = key
+    if dropped:
+        print(
+            f"warning: dropped {dropped} repeated line(s) from the answer",
+            file=sys.stderr,
+        )
+    return "\n".join(kept).rstrip()
 
 
 class Describer:
@@ -399,8 +672,19 @@ class Describer:
         system: str,
         user: str,
         images: Iterable[Path] | None = None,
+        audio: Path | None = None,
         max_tokens: int = CAPTION_MAX_TOKENS,
+        loop_resistant: bool = False,
+        widen: bool = True,
     ) -> str:
+        """One reply, with the loop and truncation recovery described below.
+
+        `loop_resistant` starts the very first attempt with the sampling that
+        breaks loops, for prompts that reliably collapse under greedy decoding.
+        `widen` retries a cut answer with twice the room; the report passes turn
+        it off, because they fill whatever room they are given and the retry only
+        produces a longer, padded answer.
+        """
         content: list[dict] = []
         for image in images or ():
             payload = base64.b64encode(image.read_bytes()).decode("ascii")
@@ -410,9 +694,19 @@ class Describer:
                     "image_url": {"url": f"data:image/jpeg;base64,{payload}"},
                 }
             )
+        if audio is not None:
+            payload = base64.b64encode(audio.read_bytes()).decode("ascii")
+            content.append(
+                {
+                    "type": "audio_url",
+                    "audio_url": {"url": f"data:audio/wav;base64,{payload}"},
+                }
+            )
         content.append({"type": "text", "text": user})
 
-        text, truncated = self._complete(system, content, max_tokens)
+        text, truncated = self._complete(
+            system, content, max_tokens, breaking_loops=loop_resistant
+        )
 
         # Greedy decoding can walk into a loop and stay there. Retrying with a
         # mild repetition penalty and a little jitter breaks the tie; more room
@@ -434,27 +728,57 @@ class Describer:
 
         # A caption that stops on the limit is missing its closing sections.
         # Giving that one call more room costs nothing when it goes unused.
-        if truncated:
+        if truncated and widen:
             print(
                 f"warning: the answer stopped at {max_tokens} tokens; retrying "
                 "with a larger budget",
                 file=sys.stderr,
             )
-            widened, still_truncated = self._complete(system, content, max_tokens * 2)
-            if still_truncated:
-                print(
-                    f"warning: still truncated at {max_tokens * 2} tokens; "
-                    "sections may be incomplete",
-                    file=sys.stderr,
+            try:
+                widened, still_truncated = self._complete(
+                    system, content, max_tokens * 2, breaking_loops=loop_resistant
                 )
-            if looks_degenerate(widened):
+            except RuntimeError:
+                # Two lanes share one GPU, so the larger budget may not fit the
+                # context. A cut answer is better than a failed video.
                 print(
-                    "warning: the longer answer repeated itself; keeping the "
-                    "shorter one",
+                    "warning: no room to widen the budget; keeping the cut answer",
                     file=sys.stderr,
                 )
             else:
-                text = widened
+                if still_truncated:
+                    print(
+                        f"warning: still truncated at {max_tokens * 2} tokens; "
+                        "sections may be incomplete",
+                        file=sys.stderr,
+                    )
+                if looks_degenerate(widened):
+                    print(
+                        "warning: the longer answer repeated itself; keeping the "
+                        "shorter one",
+                        file=sys.stderr,
+                    )
+                else:
+                    text = widened
+
+        elif truncated:
+            print(
+                f"warning: the answer stopped at {max_tokens} tokens; keeping it "
+                "as it is (this call fills any budget it is given)",
+                file=sys.stderr,
+            )
+
+        # A loop that survived both retries is not an answer, and shipping it
+        # would put thousands of identical lines in the report. The repeated run
+        # carries no information, so it is dropped and what remains is re-checked.
+        if looks_degenerate(text):
+            text = trim_repeated_lines(text)
+            if looks_degenerate(text):
+                print(
+                    "warning: the answer still reads as a loop after trimming; "
+                    "treat that part of the report with suspicion",
+                    file=sys.stderr,
+                )
 
         return text
 
@@ -506,11 +830,14 @@ class Describer:
 
 @dataclass
 class WindowCaption:
+    """One window's vision caption, plus what the audio lane heard in it."""
+
     index: int
     start: float
     end: float
     frames: int
     caption: str
+    audio: str | None = None
 
     def as_dict(self, force_hours: bool = False) -> dict:
         return {
@@ -521,6 +848,7 @@ class WindowCaption:
             "end_ts": fmt_ts(self.end, force_hours),
             "frames": self.frames,
             "caption": self.caption,
+            "audio": self.audio,
         }
 
 
@@ -529,6 +857,9 @@ class Config:
     base_url: str = "http://127.0.0.1:8000/v1"
     api_key: str = "EMPTY"
     model: str = "qwen3-vl-8b"
+    audio: bool = True
+    audio_base_url: str = "http://127.0.0.1:8001/v1"
+    audio_model: str = "qwen2-audio-7b"
     chunk_seconds: float = 30.0
     fps: float = 1.0
     max_frames: int = 48
@@ -558,6 +889,10 @@ def render_markdown(
         if len(set(counts)) == 1
         else f"{min(counts)}-{max(counts)} frames"
     )
+    analysed = any(c.audio for c in captions)
+    audio_line = (
+        f"`{cfg.audio_model}` via {cfg.audio_base_url}" if analysed else "not analysed"
+    )
     lines = [
         f"# Video description: {info.path.name}",
         "",
@@ -567,6 +902,7 @@ def render_markdown(
         f"- **Window:** {len(captions)} x {chunk:.1f}s, {sampled_fps:g} fps sampled "
         f"({frame_note} per window)",
         f"- **Model:** `{cfg.model}` via {cfg.base_url}",
+        f"- **Audio:** {audio_line}",
         f"- **Generated:** {datetime.now().astimezone().isoformat(timespec='seconds')}",
     ]
     if cfg.focus:
@@ -584,9 +920,12 @@ def render_markdown(
             f"### {fmt_ts(caption.start, hours)} - {fmt_ts(caption.end, hours)} "
             f"({caption.frames} frames)",
             "",
-            caption.caption,
-            "",
         ]
+        if caption.audio is None:
+            lines += [caption.caption, ""]
+        else:
+            lines += ["#### Picture", "", caption.caption, ""]
+            lines += ["#### Sound", "", caption.audio, ""]
     return "\n".join(lines)
 
 
@@ -619,7 +958,61 @@ def _caption_prompt(
     return prompt
 
 
-def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
+def audio_prompt(start: float, span: float, force_hours: bool) -> str:
+    return AUDIO_PROMPT.format(
+        span=span,
+        start_ts=fmt_ts(start, force_hours),
+        end_ts=fmt_ts(start + span, force_hours),
+    )
+
+
+def aggregate_prompt(
+    captions: Sequence[WindowCaption],
+    chunk: float,
+    duration: str,
+    force_hours: bool,
+    step: ReportPass,
+) -> str:
+    """Build the prompt for one pass, carrying the readings every time.
+
+    Both readings are repeated in full, because a pass cannot see what an
+    earlier one read. Earlier passes are deliberately not quoted back: shown its
+    own text so far, the model expands and restates instead of moving on.
+    """
+    with_audio = any(c.audio for c in captions)
+
+    def keyed(readings: Sequence[str]) -> str:
+        return "\n\n".join(
+            f"### Window {c.index + 1} ({fmt_ts(c.start, force_hours)} - "
+            f"{fmt_ts(c.end, force_hours)})\n{text}"
+            for c, text in zip(captions, readings, strict=True)
+        )
+
+    audio_block = ""
+    if with_audio:
+        audio_block = "\n--- AUDIO ---\n" + keyed(
+            [c.audio or "not analysed" for c in captions]
+        )
+
+    intro = (AGGREGATE_INTRO_SOUND if with_audio else AGGREGATE_INTRO_VISION).format(
+        n=len(captions), duration=duration, chunk=chunk
+    )
+    body = "\n".join(f"## {name}\n{text}\n" for name, text in step.sections)
+    readings = (
+        "\n--- CAPTIONS ---\n" + keyed([c.caption for c in captions]) + audio_block
+    )
+    return (
+        f"{intro}\n{step.preamble}\n\n{AGGREGATE_SECTIONS_INTRO}{body}\n"
+        f"{AGGREGATE_RULES}{readings}"
+    )
+
+
+def describe_video(
+    path: Path,
+    cfg: Config,
+    describer: Describer,
+    audio_describer: Describer | None = None,
+) -> Path:
     """Describe one video; returns the output directory."""
     info = probe_video(path)
     hours = info.duration >= 3600
@@ -639,6 +1032,11 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
         f"(~{int(sampled_fps * chunk)} frames)"
     )
     print(f"endpoint   {cfg.base_url}  model={cfg.model}")
+    analyse_audio = cfg.audio and info.has_audio and audio_describer is not None
+    if analyse_audio:
+        print(f"audio      {cfg.audio_base_url}  model={cfg.audio_model}")
+    elif info.has_audio:
+        print("audio      skipped")
 
     out_dir = cfg.out_dir.expanduser().resolve() / path.stem
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -650,18 +1048,31 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
             (i * chunk, min(chunk, info.duration - i * chunk)) for i in range(windows)
         ]
 
-        # 1. Extract frames up front: fast, sequential, and keeps memory flat.
+        # 1. Extract frames and audio up front: fast, sequential, flat on
+        #    memory, and it leaves the models nothing but requests to answer.
         frames_per_window: list[list[Path]] = []
+        audio_per_window: list[Path | None] = []
         for index, (start, span) in enumerate(spans):
             frames = extract_frames(
                 path, start, span, sampled_fps, cfg.width, frames_root / f"w{index:04d}"
             )
+            audio_path: Path | None = None
+            if analyse_audio:
+                audio_path = extract_audio(
+                    path, start, span, frames_root / "audio" / f"w{index:04d}.wav"
+                )
             print(
                 f"  window {index + 1}/{windows}  {fmt_ts(start, hours)}  "
-                f"{len(frames)} frames",
+                f"{len(frames)} frames"
+                + (
+                    f"  {audio_path.stat().st_size // 1024} KiB audio"
+                    if audio_path
+                    else ""
+                ),
                 flush=True,
             )
             frames_per_window.append(frames)
+            audio_per_window.append(audio_path)
 
         # 2. Caption windows in parallel; the server batches them.
         def caption(index: int) -> tuple[int, str]:
@@ -686,6 +1097,36 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
             for index, text in pool.map(caption, range(windows)):
                 captured[index] = text
 
+        caption_seconds = time.time() - started
+
+        # 3. Listen to the same windows with a model that can hear. Separate
+        #    phases keep the two servers busy in turn instead of competing for
+        #    the same GPU.
+        heard: dict[int, str] = {}
+        audio_seconds = 0.0
+        if analyse_audio and audio_describer is not None:
+            audio_started = time.time()
+
+            def listen(index: int) -> tuple[int, str]:
+                start, span = spans[index]
+                text = audio_describer.chat(
+                    AUDIO_SYSTEM,
+                    audio_prompt(start, span, hours),
+                    audio=audio_per_window[index],
+                    max_tokens=AUDIO_MAX_TOKENS,
+                )
+                print(
+                    f"  heard {index + 1}/{windows}  ({fmt_ts(start, hours)})",
+                    flush=True,
+                )
+                return index, text
+
+            print(f"analysing audio with {workers} parallel worker(s)...")
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                for index, text in pool.map(listen, range(windows)):
+                    heard[index] = text
+            audio_seconds = time.time() - audio_started
+
         captions = [
             WindowCaption(
                 index=i,
@@ -693,33 +1134,40 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
                 end=spans[i][0] + spans[i][1],
                 frames=len(frames_per_window[i]),
                 caption=captured[i],
+                audio=heard.get(i),
             )
             for i in range(windows)
         ]
-        caption_seconds = time.time() - started
 
-        # 3. Aggregate. A single window is already a complete description.
+        # 4. Fuse the two readings. A single window is already complete.
         summary = ""
         if cfg.summarise and len(captions) > 1:
-            joined = "\n\n".join(
-                f"### Window {c.index + 1} "
-                f"({fmt_ts(c.start, hours)} - {fmt_ts(c.end, hours)})\n{c.caption}"
-                for c in captions
+            with_audio = any(c.audio for c in captions)
+            written: list[str] = []
+            print(
+                f"aggregating into a report in {len(report_passes(with_audio, len(captions)))} passes..."
             )
-            prompt = AGGREGATE_PROMPT.format(
-                n=len(captions),
-                duration=fmt_ts(info.duration, hours),
-                chunk=chunk,
-                captions=joined,
-            )
-            if cfg.focus:
-                prompt += f"\nThe requester cares most about: {cfg.focus}\n"
-            print("aggregating into a single report...")
-            summary = describer.chat(
-                AGGREGATE_SYSTEM,
-                prompt,
-                max_tokens=aggregate_token_budget(len(captions)),
-            )
+            for step in report_passes(with_audio, len(captions)):
+                prompt = aggregate_prompt(
+                    captions,
+                    chunk=chunk,
+                    duration=fmt_ts(info.duration, hours),
+                    force_hours=hours,
+                    step=step,
+                )
+                if cfg.focus:
+                    prompt += f"\nThe requester cares most about: {cfg.focus}\n"
+                print(f"  pass {step.name} ({step.max_tokens} tokens)")
+                written.append(
+                    describer.chat(
+                        AGGREGATE_SYSTEM,
+                        prompt,
+                        max_tokens=step.max_tokens,
+                        loop_resistant=True,
+                        widen=False,
+                    )
+                )
+            summary = "\n\n".join(written)
 
         elapsed = time.time() - started
 
@@ -756,6 +1204,7 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
                         "workers": cfg.workers,
                         "focus": cfg.focus or None,
                         "summarise": cfg.summarise,
+                        "audio": cfg.audio,
                     },
                     "windows": windows,
                     "frames_per_window": [len(frames) for frames in frames_per_window],
@@ -765,7 +1214,10 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
                     "model": cfg.model,
                     "base_url": cfg.base_url,
                     "focus": cfg.focus or None,
-                    "audio_analyzed": False,
+                    "audio_analyzed": analyse_audio,
+                    "audio_model": cfg.audio_model if analyse_audio else None,
+                    "audio_base_url": cfg.audio_base_url if analyse_audio else None,
+                    "audio_seconds": round(audio_seconds, 1),
                     "caption_seconds": round(caption_seconds, 1),
                     "total_seconds": round(elapsed, 1),
                 },
@@ -789,28 +1241,21 @@ def describe_video(path: Path, cfg: Config, describer: Describer) -> Path:
 # Experiment index
 # --------------------------------------------------------------------------- #
 
-# Sections the aggregate pass is asked to produce. A missing heading means the
-# model dropped part of its own reporting contract, which is worth surfacing
-# rather than passing off as silence.
-REQUIRED_REPORT_SECTIONS = (
-    "Overview",
-    "Timeline",
-    "Recurring elements",
-    "Notable details",
-    "Gaps and uncertainties",
-)
 
+def check_report(text: str, sections: Sequence[str] | None = None) -> list[str] | None:
+    """Sections that were asked for but are absent from a report.
 
-def check_report(text: str) -> list[str] | None:
-    """Aggregate sections that were asked for but are absent from a report.
-
+    A missing heading means the model dropped part of its own reporting
+    contract, which is worth surfacing rather than passing off as silence.
     Returns None when there is nothing to check: a single-window video, or a run
-    with --no-summary, produces no whole-video report.
+    with --no-summary, produces no whole-video report. The expected sections
+    depend on whether audio was part of the run.
     """
     if "## Whole-video report" not in text:
         return None
+    required = report_sections(False) if sections is None else sections
     present = set(re.findall(r"^##\s+(.+?)\s*$", text, flags=re.MULTILINE))
-    return [name for name in REQUIRED_REPORT_SECTIONS if name not in present]
+    return [name for name in required if name not in present]
 
 
 def fmt_span(seconds: float) -> str:
@@ -843,6 +1288,7 @@ def collect_records(out_dir: Path) -> list[dict]:
             per_window = meta["sampled_fps"] * meta["chunk_seconds"]
             frames = [round(per_window)] * (meta.get("windows") or 1)
             estimated = True
+        audio = bool(meta.get("audio_analyzed"))
         width, height = probe.get("width"), probe.get("height")
         report = folder / "description.md"
         report_text = report.read_text() if report.exists() else ""
@@ -856,7 +1302,8 @@ def collect_records(out_dir: Path) -> list[dict]:
                 "resolution": f"{width}x{height}" if width and height else None,
                 "source_fps": probe.get("fps"),
                 "has_audio": probe.get("has_audio"),
-                "audio_analyzed": meta.get("audio_analyzed", False),
+                "audio_analyzed": audio,
+                "audio_model": meta.get("audio_model"),
                 "model": meta.get("model"),
                 "base_url": meta.get("base_url"),
                 "config": meta.get("config"),
@@ -869,7 +1316,11 @@ def collect_records(out_dir: Path) -> list[dict]:
                 "width": meta.get("width"),
                 "caption_seconds": meta.get("caption_seconds"),
                 "total_seconds": meta.get("total_seconds"),
-                "missing_sections": check_report(report_text) if report_text else None,
+                "missing_sections": (
+                    check_report(report_text, report_sections(audio))
+                    if report_text
+                    else None
+                ),
                 "report": f"{name}/{report.name}" if report.exists() else None,
                 "captions": f"{name}/{captions.name}" if captions.exists() else None,
             }
@@ -902,6 +1353,8 @@ def _describe_config(config: dict | None) -> str:
         parts.append(f"focus: {config['focus']}")
     if config.get("summarise") is False:
         parts.append("no aggregate pass")
+    if config.get("audio") is False:
+        parts.append("no audio analysis")
     return ", ".join(parts)
 
 
@@ -917,6 +1370,17 @@ def render_index_markdown(out_dir: Path, records: Sequence[dict]) -> str:
     endpoints = ", ".join(sorted({r["base_url"] for r in records if r["base_url"]}))
     model_line = f"{models or 'unknown'}" + (f" via {endpoints}" if endpoints else "")
 
+    heard = sum(1 for r in records if r["audio_analyzed"])
+    audio_models = ", ".join(
+        f"`{m}`"
+        for m in sorted({r["audio_model"] for r in records if r["audio_model"]})
+    )
+    audio_line = (
+        f"{audio_models or 'analysed'} in {heard} of {len(records)} videos"
+        if heard
+        else "not analysed"
+    )
+
     lines = [
         f"# Results: {out_dir.name}",
         "",
@@ -924,7 +1388,7 @@ def render_index_markdown(out_dir: Path, records: Sequence[dict]) -> str:
         f"- **Processing:** {fmt_span(processing)}{speed}",
         f"- **Model:** {model_line}",
         f"- **Requested settings:** {_describe_config(shared_config(records))}",
-        "- **Audio:** not analysed (the model is vision-only)",
+        f"- **Audio:** {audio_line}",
         "",
         "| Video | Duration | Windows | Frames | Time | Notes |",
         "|---|---|---|---|---|---|",
@@ -951,8 +1415,7 @@ def render_index_markdown(out_dir: Path, records: Sequence[dict]) -> str:
         "",
         "`Notes` lists sections the aggregate pass was asked for and did not",
         "produce. A `~` before the frame count marks an estimate from the",
-        "sampling rate. Audio is never part of these results. Rebuild this file",
-        "and `run.json` with",
+        "sampling rate. Rebuild this file and `run.json` with",
         f"`./describe_video.py --reindex {os.path.relpath(out_dir)}`.",
         "",
     ]
@@ -1035,6 +1498,7 @@ def build_parser() -> argparse.ArgumentParser:
             "examples:\n"
             "  ./describe_video.py clip.mp4\n"
             "  ./describe_video.py recordings/ --fps 2\n"
+            "  ./describe_video.py clip.mp4 --no-audio\n"
             "  ./describe_video.py clip.mp4 --focus 'safety equipment'\n"
             "  ./describe_video.py --out-dir results/init-9 recordings/*.mp4\n"
             "  ./describe_video.py --reindex results/init-9\n"
@@ -1074,6 +1538,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--model",
         default=os.environ.get("VLM_MODEL", "qwen3-vl-8b"),
         help="served model name (default: $(default)s)",
+    )
+    parser.add_argument(
+        "--no-audio",
+        dest="audio",
+        action="store_false",
+        help="skip the audio lane even when the source has a soundtrack",
+    )
+    parser.add_argument(
+        "--audio-base-url",
+        default=os.environ.get("AUDIO_BASE_URL", "http://127.0.0.1:8001/v1"),
+        help="OpenAI-compatible endpoint for the audio lane (default: $(default)s)",
+    )
+    parser.add_argument(
+        "--audio-model",
+        default=os.environ.get("AUDIO_MODEL", "qwen2-audio-7b"),
+        help="served audio model name (default: $(default)s)",
     )
     parser.add_argument(
         "--chunk-seconds",
@@ -1188,6 +1668,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         base_url=args.base_url,
         api_key=args.api_key,
         model=args.model,
+        audio=args.audio,
+        audio_base_url=args.audio_base_url,
+        audio_model=args.audio_model,
         chunk_seconds=args.chunk_seconds,
         fps=args.fps,
         max_frames=args.max_frames,
@@ -1214,6 +1697,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     client = OpenAI(base_url=cfg.base_url, api_key=cfg.api_key, timeout=900.0)
     describer = Describer(client, cfg.model)
 
+    audio_describer: Describer | None = None
+    if cfg.audio:
+        try:
+            require_endpoint(cfg.audio_base_url, "audio")
+        except RuntimeError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 1
+        audio_describer = Describer(
+            OpenAI(base_url=cfg.audio_base_url, api_key=cfg.api_key, timeout=900.0),
+            cfg.audio_model,
+        )
+
     failures = 0
     for position, video in enumerate(videos, start=1):
         if len(videos) > 1:
@@ -1223,7 +1718,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"skipping {video.name}: {target} already exists")
             continue
         try:
-            describe_video(video, cfg, describer)
+            describe_video(video, cfg, describer, audio_describer)
         except (RuntimeError, OSError) as error:
             print(f"error: {video.name}: {error}", file=sys.stderr)
             failures += 1
