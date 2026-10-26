@@ -1,0 +1,29 @@
+# Environment and dependencies
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Model weights (fetched by ./install.sh, ~10 GB)
+models/
+
+# Generated reports and server logs
+outputs/
+logs/
+
+# Source footage — keep large media out of the repository
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.webm
+*.m4v
+*.mpg
+*.mpeg
+*.ts
+
+# Editors and OS noise
+.DS_Store
+.idea/
+.vscode/

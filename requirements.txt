@@ -1,0 +1,4 @@
+# Runtime dependencies.
+# vLLM bundles the matching CUDA build of torch; do not pin torch separately.
+vllm==0.32.0
+openai>=1.99,<4
